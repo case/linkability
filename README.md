@@ -21,7 +21,7 @@ These are the ~platforms we're looking to monitor:
 
 ## Operating Systems
 
-- Android
+- Android — [the data is here][android]
 - iOS / macOS / etc. — which share a common library, [`NSDataDetector`][nsdd]
 - Windows
 
@@ -43,6 +43,7 @@ These are the ~platforms we're looking to monitor:
 
 - 2023-07-21 — [PSL repo discussion][psl-thread] about this issue, from Rami at the `.tube` registry
 
+[android]: https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/core/java/android/util/Patterns.java;l=114
 [iana]: https://www.iana.org/domains/root/db
 [nsdd]: https://developer.apple.com/documentation/foundation/nsdatadetector
 [psl-thread]: https://github.com/publicsuffix/list/issues/1807
