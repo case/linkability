@@ -39,6 +39,11 @@ These are the ~platforms we're looking to monitor:
 
 - WhatsApp — It uses the OS-provided functionality
 
+# Related
+
+- 2023-07-21 — [PSL repo discussion][psl-thread] about this issue, from Rami at the `.tube` registry
+
 [iana]: https://www.iana.org/domains/root/db
 [nsdd]: https://developer.apple.com/documentation/foundation/nsdatadetector
+[psl-thread]: https://github.com/publicsuffix/list/issues/1807
 [ua]: https://www.icann.org/ua
