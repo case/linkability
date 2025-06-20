@@ -1,0 +1,18 @@
+# Version 2025062000, Last Updated Thu Jun 20 07:07:01 2025 UTC
+# This file contains a representation of test TLD data
+# For a complete list refer to http://data.iana.org/TLD/tlds-alpha-by-domain.txt
+
+audi
+au
+bmw
+com
+de
+google
+microsoft
+net
+nike
+org
+test
+uk
+xn--vermgensberater-ctb
+コム
