@@ -5,7 +5,7 @@ let package = Package(
     name: "Linkability",
     platforms: [.macOS(.v10_15)],
     dependencies: [
-        .package(url: "https://github.com/gumob/PunycodeSwift.git", from: "3.0.0")
+        .package(url: "https://github.com/gumob/PunycodeSwift.git", exact: "3.0.0")
     ],
     targets: [
         .target(
