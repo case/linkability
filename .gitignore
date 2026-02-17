@@ -1,0 +1,10 @@
+.build/
+.DS_Store
+.venv/
+__pycache__/
+*.egg-info/
+*.pyc
+dist/
+.ruff_cache/
+.pytest_cache/
+checks/apple/.build/

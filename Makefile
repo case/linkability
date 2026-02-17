@@ -1,10 +1,20 @@
-.PHONY: deps
+.PHONY: deps test lint apple-check
 
 deps:
-	@if xcode-select -p >/dev/null 2>&1; then \
-		echo "✅ Xcode Command Line Tools already installed"; \
+	python3 -m venv .venv
+	.venv/bin/python3 -m pip install -e ".[dev]"
+
+test:
+	.venv/bin/python3 -m pytest tests/ -v
+
+lint:
+	.venv/bin/ruff check src/ tests/
+
+apple-check:
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		echo "Building Apple check binary..."; \
+		cd checks/apple && swift build -c release; \
 	else \
-		echo "Installing Xcode Command Line Tools..."; \
-		xcode-select --install; \
+		echo "Apple check requires macOS"; \
+		exit 1; \
 	fi
-	swift package resolve
