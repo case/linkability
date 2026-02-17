@@ -5,14 +5,8 @@ import Foundation
 
 struct AppleCheck {
     static func main() {
-        let input = readLine(strippingNewline: false) ?? ""
-        let allInput: String
-        if let data = FileHandle.standardInput.readDataToEndOfFile() as Data?,
-           let rest = String(data: data, encoding: .utf8) {
-            allInput = input + rest
-        } else {
-            allInput = input
-        }
+        let data = FileHandle.standardInput.readDataToEndOfFile()
+        let allInput = String(data: data, encoding: .utf8) ?? ""
 
         let zones = allInput
             .components(separatedBy: .newlines)
