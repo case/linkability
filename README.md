@@ -96,27 +96,53 @@ There are some `.txt` files in the `Data-Zones/` dir, generated on 2025-06-19, w
 
 Setup
 
-- `make deps` -- Ensure that the project dependencies are installed. (so far, it's just the Xcode CLI tools, and the Punycode Swift package)
-- The `github.com/zonedb/zonedb` project needs to be installed separately, as does its CLI
+```bash
+make deps                                            # Install uv (if needed) + sync dependencies
+```
 
-CLI
+The `github.com/zonedb/zonedb` project needs to be installed separately, and is only required for the `download brands` command.
 
-- `swift run LinkabilityCLI` -- the main CLI command, shows `--help` by default
+### CLI Commands
 
-Report
+```bash
+uv run linkability --help                            # Show all commands
+```
 
-- `--report-csv` -- Generate the CSV report
-- `--report-summary` -- Show the Summary output
+Run platform checks
 
-Grab the latest data
+```bash
+uv run linkability check apple                       # Run Apple platform check (macOS only)
+uv run linkability check android                     # Run Android platform check
+```
 
-- `--download-zones` -- Download the current zones list from IANA
-- `--download-brand-zones` -- Get the latest Brand zones from the ZoneDB CLI
+Generate reports
 
-Testing
+```bash
+uv run linkability report summary --platform apple   # Print text summary to console
+uv run linkability report csv --platform apple       # Generate Reports/Report-Apple.csv
+```
 
-- `--show-missing-brands` -- Confirm if there any ZoneDB "brand" tag vs. Root Zone inaccuracies
-- `--test-cctld-brands` -- Confirm that no ccTLDs are marked as Brands
+List linked zones
+
+```bash
+uv run linkability list linked --type cctld          # Show linked ccTLD zones
+uv run linkability list linked --type gtld           # Show linked gTLD zones
+uv run linkability list linked --type brand          # Show linked brand gTLD zones
+```
+
+Download latest zone data
+
+```bash
+uv run linkability download zones                    # Download latest TLD zones from IANA
+uv run linkability download brands                   # Fetch brand zones from local ZoneDB CLI
+```
+
+Validate data integrity
+
+```bash
+uv run linkability validate missing-brands           # Show brand zones missing from root zone
+uv run linkability validate cctld-brands             # Verify no ccTLDs marked as brands
+```
 
 ## Todo
 
