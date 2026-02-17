@@ -1,14 +1,14 @@
 .PHONY: deps test lint apple-check
 
 deps:
-	python3 -m venv .venv
-	.venv/bin/python3 -m pip install -e ".[dev]"
+	@command -v uv >/dev/null 2>&1 || { echo "Installing uv..."; curl -LsSf https://astral.sh/uv/install.sh | sh; }
+	uv sync
 
 test:
-	.venv/bin/python3 -m pytest tests/ -v
+	uv run pytest tests/ -v
 
 lint:
-	.venv/bin/ruff check src/ tests/
+	uv run ruff check src/ tests/
 
 apple-check:
 	@if [ "$$(uname)" = "Darwin" ]; then \

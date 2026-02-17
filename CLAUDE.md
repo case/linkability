@@ -8,10 +8,10 @@ Measures how well popular tech platforms auto-link IANA top-level domains (TLDs)
 
 ## Build & Run
 
-This is a Python 3.11+ project with a minimal Swift helper for the Apple platform check.
+This is a Python 3.11+ project managed with [uv](https://docs.astral.sh/uv/), with a minimal Swift helper for the Apple platform check.
 
 ```bash
-make deps                                    # Create venv + install package with dev deps
+make deps                                    # Install dependencies (runs uv sync)
 make test                                    # Run pytest suite
 make lint                                    # Run ruff linter
 make apple-check                             # Build the Swift Apple check binary (macOS only)
@@ -19,28 +19,28 @@ make apple-check                             # Build the Swift Apple check binar
 
 ### CLI Commands
 
-After `make deps`, the `linkability` command is available inside the venv. Either activate it first (`source .venv/bin/activate`) or use the full path:
+After `make deps`, use `uv run` to invoke the CLI:
 
 ```bash
-.venv/bin/linkability --help                           # Show all commands
-.venv/bin/linkability download zones                   # Download latest TLD zones from IANA
-.venv/bin/linkability download brands                  # Fetch brand zones from local ZoneDB CLI
-.venv/bin/linkability report csv --platform apple      # Generate Reports/Report-Apple.csv
-.venv/bin/linkability report summary --platform apple  # Print text summary to console
-.venv/bin/linkability list linked --type cctld         # Show linked ccTLD zones
-.venv/bin/linkability list linked --type gtld          # Show linked gTLD zones
-.venv/bin/linkability list linked --type brand         # Show linked brand gTLD zones
-.venv/bin/linkability validate missing-brands          # Show brand zones missing from root zone
-.venv/bin/linkability validate cctld-brands            # Verify no ccTLDs marked as brands
-.venv/bin/linkability check apple                      # Run Apple platform check
-.venv/bin/linkability check android                    # Run Android platform check
+uv run linkability --help                           # Show all commands
+uv run linkability download zones                   # Download latest TLD zones from IANA
+uv run linkability download brands                  # Fetch brand zones from local ZoneDB CLI
+uv run linkability report csv --platform apple      # Generate Reports/Report-Apple.csv
+uv run linkability report summary --platform apple  # Print text summary to console
+uv run linkability list linked --type cctld         # Show linked ccTLD zones
+uv run linkability list linked --type gtld          # Show linked gTLD zones
+uv run linkability list linked --type brand         # Show linked brand gTLD zones
+uv run linkability validate missing-brands          # Show brand zones missing from root zone
+uv run linkability validate cctld-brands            # Verify no ccTLDs marked as brands
+uv run linkability check apple                      # Run Apple platform check
+uv run linkability check android                    # Run Android platform check
 ```
 
 ## Tests
 
 ```bash
-.venv/bin/python3 -m pytest tests/ -v        # Run all tests
-.venv/bin/python3 -m pytest tests/test_zones.py  # Run specific test file
+uv run pytest tests/ -v                      # Run all tests
+uv run pytest tests/test_zones.py            # Run specific test file
 ```
 
 Uses pytest. Test data lives in `tests/data/`.
@@ -76,7 +76,7 @@ Python orchestrator with platform-specific check plugins:
 
 ## Dependencies
 
-- **Python:** `idna>=3.6` (Punycode/IDN decoding). Dev: `pytest>=8.0`, `ruff>=0.4`.
+- **Python:** Managed by uv. `idna>=3.6` (Punycode/IDN decoding). Dev: `pytest>=8.0`, `ruff>=0.4`.
 - **Swift** (Apple check only): No external dependencies, uses Foundation framework
 - **zonedb CLI** (external) — Required only for `linkability download brands`. Expects the ZoneDB repo at `~/git/domainr/zonedb`
 
