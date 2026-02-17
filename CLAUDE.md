@@ -19,19 +19,21 @@ make apple-check                             # Build the Swift Apple check binar
 
 ### CLI Commands
 
+After `make deps`, the `linkability` command is available inside the venv. Either activate it first (`source .venv/bin/activate`) or use the full path:
+
 ```bash
-linkability --help                           # Show all commands
-linkability download zones                   # Download latest TLD zones from IANA
-linkability download brands                  # Fetch brand zones from local ZoneDB CLI
-linkability report csv --platform apple      # Generate Reports/Report-Apple.csv
-linkability report summary --platform apple  # Print text summary to console
-linkability list linked --type cctld         # Show linked ccTLD zones
-linkability list linked --type gtld          # Show linked gTLD zones
-linkability list linked --type brand         # Show linked brand gTLD zones
-linkability validate missing-brands          # Show brand zones missing from root zone
-linkability validate cctld-brands            # Verify no ccTLDs marked as brands
-linkability check apple                      # Run Apple platform check
-linkability check android                    # Run Android platform check
+.venv/bin/linkability --help                           # Show all commands
+.venv/bin/linkability download zones                   # Download latest TLD zones from IANA
+.venv/bin/linkability download brands                  # Fetch brand zones from local ZoneDB CLI
+.venv/bin/linkability report csv --platform apple      # Generate Reports/Report-Apple.csv
+.venv/bin/linkability report summary --platform apple  # Print text summary to console
+.venv/bin/linkability list linked --type cctld         # Show linked ccTLD zones
+.venv/bin/linkability list linked --type gtld          # Show linked gTLD zones
+.venv/bin/linkability list linked --type brand         # Show linked brand gTLD zones
+.venv/bin/linkability validate missing-brands          # Show brand zones missing from root zone
+.venv/bin/linkability validate cctld-brands            # Verify no ccTLDs marked as brands
+.venv/bin/linkability check apple                      # Run Apple platform check
+.venv/bin/linkability check android                    # Run Android platform check
 ```
 
 ## Tests
