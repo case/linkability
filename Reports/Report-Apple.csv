@@ -28,7 +28,7 @@ africa,g,false,❌,nic.africa
 ag,cc,false,❌,nic.ag
 agakhan,g,true,❌,nic.agakhan
 agency,g,false,❌,nic.agency
-ai,cc,false,❌,nic.ai
+ai,cc,false,✅,nic.ai
 aig,g,true,❌,nic.aig
 airbus,g,true,❌,nic.airbus
 airforce,g,false,❌,nic.airforce
@@ -904,7 +904,7 @@ playstation,g,true,❌,nic.playstation
 plumbing,g,false,❌,nic.plumbing
 plus,g,false,❌,nic.plus
 pm,cc,false,❌,nic.pm
-pn,cc,false,❌,nic.pn
+pn,cc,false,✅,nic.pn
 pnc,g,true,❌,nic.pnc
 pohl,g,true,❌,nic.pohl
 poker,g,false,❌,nic.poker
