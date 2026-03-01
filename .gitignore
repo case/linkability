@@ -8,3 +8,5 @@ dist/
 .ruff_cache/
 .pytest_cache/
 checks/apple/.build/
+Data-Zones/tlds.json
+temp/*
