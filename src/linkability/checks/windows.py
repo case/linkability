@@ -15,6 +15,14 @@ class WindowsCheck(Check):
     def platform_name(self) -> str:
         return "Windows"
 
+    @property
+    def platform_type(self) -> str:
+        return "os"
+
+    @property
+    def platform_version(self) -> str:
+        return "unknown"
+
     def is_available(self) -> bool:
         return False
 

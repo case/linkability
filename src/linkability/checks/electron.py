@@ -14,6 +14,14 @@ class ElectronCheck(Check):
     def platform_name(self) -> str:
         return "Electron"
 
+    @property
+    def platform_type(self) -> str:
+        return "framework"
+
+    @property
+    def platform_version(self) -> str:
+        return "unknown"
+
     def is_available(self) -> bool:
         return False
 

@@ -13,6 +13,16 @@ class Check(ABC):
     def platform_name(self) -> str:
         """Human-readable platform name (e.g. 'Apple')."""
 
+    @property
+    @abstractmethod
+    def platform_type(self) -> str:
+        """Platform category: 'os', 'browser', 'framework', or 'app'."""
+
+    @property
+    @abstractmethod
+    def platform_version(self) -> str:
+        """Platform version string, detected at runtime."""
+
     @abstractmethod
     def is_available(self) -> bool:
         """Whether this check can run on the current system."""

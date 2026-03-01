@@ -33,6 +33,14 @@ class AndroidCheck(Check):
     def platform_name(self) -> str:
         return "Android"
 
+    @property
+    def platform_type(self) -> str:
+        return "os"
+
+    @property
+    def platform_version(self) -> str:
+        return "main"
+
     def is_available(self) -> bool:
         return True  # Network-only, no device needed
 

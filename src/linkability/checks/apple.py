@@ -18,6 +18,20 @@ class AppleCheck(Check):
     def platform_name(self) -> str:
         return "Apple"
 
+    @property
+    def platform_type(self) -> str:
+        return "os"
+
+    @property
+    def platform_version(self) -> str:
+        """Detect macOS version via sw_vers."""
+        result = subprocess.run(
+            ["sw_vers", "-productVersion"],
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+
     def is_available(self) -> bool:
         return sys.platform == "darwin"
 
