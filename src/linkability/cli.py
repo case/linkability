@@ -11,8 +11,8 @@ from .checks.electron import ElectronCheck
 from .checks.windows import WindowsCheck
 from .classify import is_cctld
 from .reports import generate_csv_report, generate_summary
-from .validate import show_missing_brands, test_cctld_brands
-from .zones import download_brand_zones, download_iana_zones, read_zones
+from .validate import find_cctld_brands, show_missing_brands
+from .zones import download_brand_zones, download_iana_zones, load_zone_data
 
 _CHECKS = {
     "apple": AppleCheck,
@@ -34,13 +34,22 @@ def _get_check(platform: str):
     return check
 
 
-def _run_check(platform: str) -> dict[str, bool]:
+_ZONES_PATH = "Data-Zones/zones-full.txt"
+_BRAND_ZONES_PATH = "Data-Zones/zones-brand.txt"
+
+
+def _load_zones() -> tuple[list[str], set[str]]:
+    """Load zone data, exiting on failure."""
+    zones, brand_zones = load_zone_data(_ZONES_PATH, _BRAND_ZONES_PATH)
+    if not zones:
+        print(f"No zones found in {_ZONES_PATH}")
+        sys.exit(1)
+    return zones, brand_zones
+
+
+def _run_check(platform: str, zones: list[str]) -> dict[str, bool]:
     """Run a platform check and return results."""
     check = _get_check(platform)
-    zones = read_zones("Data-Zones/zones-full.txt")
-    if not zones:
-        print("No zones found in Data-Zones/zones-full.txt")
-        sys.exit(1)
     return check.check_zones(zones)
 
 
@@ -53,19 +62,26 @@ def cmd_download_brands(args: argparse.Namespace) -> None:
 
 
 def cmd_report_csv(args: argparse.Namespace) -> None:
-    results = _run_check(args.platform)
-    generate_csv_report(args.platform.capitalize(), results)
+    zones, brand_zones = _load_zones()
+    results = _run_check(args.platform, zones)
+    generate_csv_report(
+        args.platform.capitalize(), results,
+        zones_path=_ZONES_PATH, brand_zones_path=_BRAND_ZONES_PATH,
+    )
 
 
 def cmd_report_summary(args: argparse.Namespace) -> None:
-    results = _run_check(args.platform)
-    generate_summary(args.platform.capitalize(), results)
+    zones, brand_zones = _load_zones()
+    results = _run_check(args.platform, zones)
+    generate_summary(
+        args.platform.capitalize(), results,
+        zones=zones, brand_zones=brand_zones,
+    )
 
 
 def cmd_list_linked(args: argparse.Namespace) -> None:
-    results = _run_check(args.platform)
-    zones = read_zones("Data-Zones/zones-full.txt")
-    brand_zones = set(read_zones("Data-Zones/zones-brand.txt"))
+    zones, brand_zones = _load_zones()
+    results = _run_check(args.platform, zones)
 
     linked: list[str] = []
     for zone in zones:
@@ -92,16 +108,23 @@ def cmd_list_linked(args: argparse.Namespace) -> None:
 
 
 def cmd_validate_missing_brands(args: argparse.Namespace) -> None:
-    show_missing_brands()
+    show_missing_brands(_ZONES_PATH, _BRAND_ZONES_PATH)
 
 
 def cmd_validate_cctld_brands(args: argparse.Namespace) -> None:
-    report_path = f"Reports/Report-{args.platform.capitalize()}.csv"
-    test_cctld_brands(report_path)
+    zones, brand_zones = _load_zones()
+    cctld_brands = find_cctld_brands(zones, brand_zones)
+    if not cctld_brands:
+        print("PASS: No ccTLDs are marked as brands")
+    else:
+        print(f"FAIL: Found {len(cctld_brands)} ccTLD(s) marked as brands:")
+        for zone in sorted(cctld_brands):
+            print(f"  - {zone}")
 
 
 def cmd_check(args: argparse.Namespace) -> None:
-    results = _run_check(args.platform)
+    zones, _ = _load_zones()
+    results = _run_check(args.platform, zones)
     linked = sum(1 for v in results.values() if v)
     total = len(results)
     print(f"\n{args.platform.capitalize()} check: {linked}/{total} zones linked")
@@ -174,7 +197,6 @@ def main() -> None:
     val_missing = val_sub.add_parser("missing-brands", help="Show missing brand zones")
     val_missing.set_defaults(func=cmd_validate_missing_brands)
     val_cctld = val_sub.add_parser("cctld-brands", help="Test no ccTLDs are marked as brands")
-    val_cctld.add_argument("--platform", required=True, choices=list(_CHECKS))
     val_cctld.set_defaults(func=cmd_validate_cctld_brands)
 
     # check
