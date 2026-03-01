@@ -146,12 +146,10 @@ uv run linkability validate cctld-brands             # Verify no ccTLDs marked a
 
 ## Todo
 
-I'm not a $dayJob Swift developer, so there's probably plenty of stuff in here that could be done better.
-
-- [ ] Names of things -- Many of the things in here (like the functions) could probably be named better.
+- [ ] Names of things - Many of the things in here (like the functions) could probably be named better.
 - [ ] The `github.com/zonedb/zonedb` (Go) project is a pre-req to use some of this project's functionality, and it needs to be added to the `Makefile` accordingly. Maybe this project should be a Go project instead of Swift?
-- [ ] Tests -- there are a few tests, but there's always room for more 😅
-- [ ] `Package.swift` -- There are multiple `.executableTarget()`s in here, there's probably a more conventional way to do this?
+- [ ] Tests - there are a few tests, but there's always room for more 😅
+- [ ] `Package.swift` - There are multiple `.executableTarget()`s in here, there's probably a more conventional way to do this?
 - [ ] Get this running in GitHub Actions, probably on e.g. a monthly schedule (given Apple's OS update release cadence)
 - [ ] Update this Readme once the `--json` [ZoneDB PR][zonedb-json-pr] is merged
 - [ ] Maybe generalize this functionality away from just the Apple ecosystem? This CLI + reporting pattern is probably generally useful across the other platforms. (it could stay in Swift, or be ported to any other suitable language; I started with Swift because it seemed like the entrypoint for obtaining this info from the Apple stdlib)
