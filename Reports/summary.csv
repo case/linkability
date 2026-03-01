@@ -1,2 +1,4 @@
 platform,platform_type,platform_version,check_date,zones_count,cctld_count,gtld_count,brand_count,linked_total,linked_cctlds,linked_gtlds,linked_brands,linked_pct
-apple,os,26.3,2026-03-01,1436,248,1188,446,125,91,34,1,8.7
+apple,os,14.8.4,2026-03-01,1436,248,1188,361,122,88,34,1,8.5
+apple,os,15.7.4,2026-03-01,1436,248,1188,361,123,89,34,1,8.6
+apple,os,26.3,2026-03-01,1436,248,1188,361,125,91,34,1,8.7

@@ -28,7 +28,7 @@ africa,gtld,false,false
 ag,cctld,false,false
 agakhan,gtld,false,false
 agency,gtld,false,false
-ai,cctld,false,true
+ai,cctld,false,false
 aig,gtld,true,false
 airbus,gtld,true,false
 airforce,gtld,false,false
@@ -902,7 +902,7 @@ playstation,gtld,true,false
 plumbing,gtld,false,false
 plus,gtld,false,false
 pm,cctld,false,false
-pn,cctld,false,true
+pn,cctld,false,false
 pnc,gtld,true,false
 pohl,gtld,false,false
 poker,gtld,false,false

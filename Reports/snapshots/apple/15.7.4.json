@@ -1,15 +1,15 @@
 {
   "platform": "apple",
   "platform_type": "os",
-  "platform_version": "26.3",
+  "platform_version": "15.7.4",
   "check_date": "2026-03-01",
-  "file": "apple/26.3.csv",
+  "file": "apple/15.7.4.csv",
   "zones_count": 1436,
   "cctld_count": 248,
   "gtld_count": 1188,
   "brand_count": 361,
-  "linked_total": 125,
-  "linked_cctlds": 91,
+  "linked_total": 123,
+  "linked_cctlds": 89,
   "linked_gtlds": 34,
   "linked_brands": 1
 }
