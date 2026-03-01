@@ -4,13 +4,23 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import date
 
 from .checks.android import AndroidCheck
 from .checks.apple import AppleCheck
 from .checks.electron import ElectronCheck
 from .checks.windows import WindowsCheck
 from .classify import is_cctld
-from .reports import generate_csv_report, generate_summary
+from .reports import (
+    build_csv_rows,
+    build_manifest_entry,
+    generate_summary,
+    load_manifest,
+    save_manifest,
+    save_summary_csv,
+    upsert_manifest_entry,
+    write_snapshot,
+)
 from .validate import find_cctld_brands, show_missing_brands
 from .zones import download_brand_zones, download_iana_zones, load_zone_data
 
@@ -47,10 +57,11 @@ def _load_zones() -> tuple[list[str], set[str]]:
     return zones, brand_zones
 
 
-def _run_check(platform: str, zones: list[str]) -> dict[str, bool]:
-    """Run a platform check and return results."""
+def _run_check(platform: str, zones: list[str]) -> tuple:
+    """Run a platform check and return (check_instance, results)."""
     check = _get_check(platform)
-    return check.check_zones(zones)
+    results = check.check_zones(zones)
+    return check, results
 
 
 def cmd_download_zones(args: argparse.Namespace) -> None:
@@ -63,16 +74,38 @@ def cmd_download_brands(args: argparse.Namespace) -> None:
 
 def cmd_report_csv(args: argparse.Namespace) -> None:
     zones, brand_zones = _load_zones()
-    results = _run_check(args.platform, zones)
-    generate_csv_report(
-        args.platform.capitalize(), results,
-        zones_path=_ZONES_PATH, brand_zones_path=_BRAND_ZONES_PATH,
+    check, results = _run_check(args.platform, zones)
+
+    # Build and write snapshot CSV
+    rows = build_csv_rows(zones, brand_zones, results)
+    version = check.platform_version
+    path = write_snapshot(args.platform, version, rows)
+
+    # Update manifest
+    file_rel = f"{args.platform}/{version}.csv"
+    entry = build_manifest_entry(
+        platform=args.platform,
+        platform_type=check.platform_type,
+        version=version,
+        check_date=date.today().isoformat(),
+        file_rel=file_rel,
+        zones=zones,
+        brand_zones=brand_zones,
+        check_results=results,
     )
+    entries = load_manifest()
+    entries = upsert_manifest_entry(entries, entry)
+    save_manifest(entries)
+
+    # Regenerate summary
+    save_summary_csv(entries)
+
+    print(f"Snapshot saved to {path}")
 
 
 def cmd_report_summary(args: argparse.Namespace) -> None:
     zones, brand_zones = _load_zones()
-    results = _run_check(args.platform, zones)
+    _, results = _run_check(args.platform, zones)
     generate_summary(
         args.platform.capitalize(), results,
         zones=zones, brand_zones=brand_zones,
@@ -81,7 +114,7 @@ def cmd_report_summary(args: argparse.Namespace) -> None:
 
 def cmd_list_linked(args: argparse.Namespace) -> None:
     zones, brand_zones = _load_zones()
-    results = _run_check(args.platform, zones)
+    _, results = _run_check(args.platform, zones)
 
     linked: list[str] = []
     for zone in zones:
@@ -124,7 +157,7 @@ def cmd_validate_cctld_brands(args: argparse.Namespace) -> None:
 
 def cmd_check(args: argparse.Namespace) -> None:
     zones, _ = _load_zones()
-    results = _run_check(args.platform, zones)
+    _, results = _run_check(args.platform, zones)
     linked = sum(1 for v in results.values() if v)
     total = len(results)
     print(f"\n{args.platform.capitalize()} check: {linked}/{total} zones linked")
