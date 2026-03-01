@@ -345,3 +345,107 @@ def test_summary_format() -> None:
     assert "gTLDs" in output
     assert "ccTLDs" in output
     assert "Auto-linked zones" in output
+
+
+# --- write_entry_json (sidecar metadata) ---
+
+
+def test_write_entry_json_creates_file() -> None:
+    """write_entry_json writes a JSON sidecar next to the snapshot CSV."""
+    from linkability.reports import write_entry_json
+
+    entry = {
+        "platform": "apple",
+        "platform_type": "os",
+        "platform_version": "15.3",
+        "check_date": "2026-03-01",
+        "file": "apple/15.3.csv",
+        "zones_count": 100,
+        "linked_total": 50,
+    }
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = write_entry_json(entry, output_dir=tmpdir)
+
+        assert path.exists()
+        assert path == Path(tmpdir) / "snapshots" / "apple" / "15.3.json"
+
+        data = json.loads(path.read_text())
+        assert data["platform"] == "apple"
+        assert data["platform_version"] == "15.3"
+        assert data["linked_total"] == 50
+
+
+# --- rebuild_from_sidecars (aggregation) ---
+
+
+def test_rebuild_from_sidecars_collects_entries() -> None:
+    """rebuild_from_sidecars reads all sidecar JSONs and rebuilds manifest + summary."""
+    from linkability.reports import rebuild_from_sidecars
+
+    entry_apple = {
+        "platform": "apple",
+        "platform_type": "os",
+        "platform_version": "15.3",
+        "check_date": "2026-03-01",
+        "file": "apple/15.3.csv",
+        "zones_count": 100,
+        "cctld_count": 20,
+        "gtld_count": 80,
+        "brand_count": 30,
+        "linked_total": 50,
+        "linked_cctlds": 10,
+        "linked_gtlds": 40,
+        "linked_brands": 5,
+    }
+    entry_apple_26 = {
+        "platform": "apple",
+        "platform_type": "os",
+        "platform_version": "26.3",
+        "check_date": "2026-03-01",
+        "file": "apple/26.3.csv",
+        "zones_count": 100,
+        "cctld_count": 20,
+        "gtld_count": 80,
+        "brand_count": 30,
+        "linked_total": 60,
+        "linked_cctlds": 12,
+        "linked_gtlds": 48,
+        "linked_brands": 8,
+    }
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Write sidecar files manually
+        apple_dir = Path(tmpdir) / "snapshots" / "apple"
+        apple_dir.mkdir(parents=True)
+        (apple_dir / "15.3.json").write_text(json.dumps(entry_apple))
+        (apple_dir / "26.3.json").write_text(json.dumps(entry_apple_26))
+
+        rebuild_from_sidecars(output_dir=tmpdir)
+
+        # Check manifest
+        manifest_path = Path(tmpdir) / "manifest.json"
+        assert manifest_path.exists()
+        data = json.loads(manifest_path.read_text())
+        assert len(data["snapshots"]) == 2
+        versions = {e["platform_version"] for e in data["snapshots"]}
+        assert versions == {"15.3", "26.3"}
+
+        # Check summary
+        summary_path = Path(tmpdir) / "summary.csv"
+        assert summary_path.exists()
+        lines = summary_path.read_text().strip().splitlines()
+        assert len(lines) == 3  # header + 2 data rows
+
+
+def test_rebuild_from_sidecars_empty_dir() -> None:
+    """rebuild_from_sidecars with no sidecar files produces empty manifest."""
+    from linkability.reports import rebuild_from_sidecars
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        rebuild_from_sidecars(output_dir=tmpdir)
+
+        manifest_path = Path(tmpdir) / "manifest.json"
+        assert manifest_path.exists()
+        data = json.loads(manifest_path.read_text())
+        assert data["snapshots"] == []

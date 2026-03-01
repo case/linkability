@@ -134,6 +134,32 @@ def upsert_manifest_entry(
     return result
 
 
+# --- Sidecar entry JSON ---
+
+
+def write_entry_json(entry: dict, output_dir: str = "Reports") -> Path:
+    """Write a manifest entry as a sidecar JSON next to its snapshot CSV."""
+    platform = entry["platform"]
+    version = entry["platform_version"]
+    snapshot_dir = Path(output_dir) / "snapshots" / platform
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    path = snapshot_dir / f"{version}.json"
+    path.write_text(json.dumps(entry, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def rebuild_from_sidecars(output_dir: str = "Reports") -> None:
+    """Rebuild manifest.json and summary.csv from all sidecar JSON files."""
+    snapshots_dir = Path(output_dir) / "snapshots"
+    entries: list[dict] = []
+    if snapshots_dir.exists():
+        for json_path in sorted(snapshots_dir.glob("**/*.json")):
+            entry = json.loads(json_path.read_text(encoding="utf-8"))
+            entries.append(entry)
+    save_manifest(entries, output_dir=output_dir)
+    save_summary_csv(entries, output_dir=output_dir)
+
+
 # --- Summary CSV ---
 
 

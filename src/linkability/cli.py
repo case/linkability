@@ -16,9 +16,11 @@ from .reports import (
     build_manifest_entry,
     generate_summary,
     load_manifest,
+    rebuild_from_sidecars,
     save_manifest,
     save_summary_csv,
     upsert_manifest_entry,
+    write_entry_json,
     write_snapshot,
 )
 from .validate import find_cctld_brands, show_missing_brands
@@ -81,7 +83,7 @@ def cmd_report_csv(args: argparse.Namespace) -> None:
     version = check.platform_version
     path = write_snapshot(args.platform, version, rows)
 
-    # Update manifest
+    # Build manifest entry and write sidecar JSON
     file_rel = f"{args.platform}/{version}.csv"
     entry = build_manifest_entry(
         platform=args.platform,
@@ -93,6 +95,9 @@ def cmd_report_csv(args: argparse.Namespace) -> None:
         brand_zones=brand_zones,
         check_results=results,
     )
+    write_entry_json(entry)
+
+    # Update manifest
     entries = load_manifest()
     entries = upsert_manifest_entry(entries, entry)
     save_manifest(entries)
@@ -101,6 +106,11 @@ def cmd_report_csv(args: argparse.Namespace) -> None:
     save_summary_csv(entries)
 
     print(f"Snapshot saved to {path}")
+
+
+def cmd_report_rebuild(args: argparse.Namespace) -> None:
+    rebuild_from_sidecars()
+    print("Rebuilt manifest.json and summary.csv from snapshot sidecars")
 
 
 def cmd_report_summary(args: argparse.Namespace) -> None:
@@ -215,6 +225,8 @@ def main() -> None:
     rpt_summary = rpt_sub.add_parser("summary", help="Print text summary")
     rpt_summary.add_argument("--platform", required=True, choices=list(_CHECKS))
     rpt_summary.set_defaults(func=cmd_report_summary)
+    rpt_rebuild = rpt_sub.add_parser("rebuild", help="Rebuild manifest and summary from snapshots")
+    rpt_rebuild.set_defaults(func=cmd_report_rebuild)
 
     # list
     lst = subparsers.add_parser("list", help="List linked zones")
