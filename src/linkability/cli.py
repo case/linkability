@@ -107,7 +107,7 @@ def cmd_check(args: argparse.Namespace) -> None:
     print(f"\n{args.platform.capitalize()} check: {linked}/{total} zones linked")
 
 
-class _CapitalizedHelpFormatter(argparse.HelpFormatter):
+class _HelpFormatter(argparse.HelpFormatter):
     """Capitalizes section headings and the usage prefix."""
 
     def start_section(self, heading: str | None) -> None:
@@ -121,11 +121,22 @@ class _CapitalizedHelpFormatter(argparse.HelpFormatter):
         return super()._format_usage(usage, actions, groups, prefix)
 
 
+class _ArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser with capitalized output and improved error formatting."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("formatter_class", _HelpFormatter)
+        super().__init__(*args, **kwargs)
+
+    def error(self, message: str) -> None:
+        self.print_usage(sys.stderr)
+        self.exit(2, f"\nError: {message}\n")
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(
+    parser = _ArgumentParser(
         prog="linkability",
         description="Measures how well tech platforms auto-link IANA top-level domains.",
-        formatter_class=_CapitalizedHelpFormatter,
     )
     subparsers = parser.add_subparsers(
         dest="command", required=True, title="commands", metavar=""
@@ -143,10 +154,10 @@ def main() -> None:
     rpt = subparsers.add_parser("report", help="Generate reports")
     rpt_sub = rpt.add_subparsers(dest="format", required=True)
     rpt_csv = rpt_sub.add_parser("csv", help="Generate CSV report")
-    rpt_csv.add_argument("--platform", default="apple", choices=list(_CHECKS))
+    rpt_csv.add_argument("--platform", required=True, choices=list(_CHECKS))
     rpt_csv.set_defaults(func=cmd_report_csv)
     rpt_summary = rpt_sub.add_parser("summary", help="Print text summary")
-    rpt_summary.add_argument("--platform", default="apple", choices=list(_CHECKS))
+    rpt_summary.add_argument("--platform", required=True, choices=list(_CHECKS))
     rpt_summary.set_defaults(func=cmd_report_summary)
 
     # list
@@ -154,7 +165,7 @@ def main() -> None:
     lst_sub = lst.add_subparsers(dest="action", required=True)
     lst_linked = lst_sub.add_parser("linked", help="Show linked zones by type")
     lst_linked.add_argument("--type", required=True, choices=["cctld", "gtld", "brand"])
-    lst_linked.add_argument("--platform", default="apple", choices=list(_CHECKS))
+    lst_linked.add_argument("--platform", required=True, choices=list(_CHECKS))
     lst_linked.set_defaults(func=cmd_list_linked)
 
     # validate
@@ -163,7 +174,7 @@ def main() -> None:
     val_missing = val_sub.add_parser("missing-brands", help="Show missing brand zones")
     val_missing.set_defaults(func=cmd_validate_missing_brands)
     val_cctld = val_sub.add_parser("cctld-brands", help="Test no ccTLDs are marked as brands")
-    val_cctld.add_argument("--platform", default="apple", choices=list(_CHECKS))
+    val_cctld.add_argument("--platform", required=True, choices=list(_CHECKS))
     val_cctld.set_defaults(func=cmd_validate_cctld_brands)
 
     # check
