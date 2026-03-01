@@ -107,12 +107,29 @@ def cmd_check(args: argparse.Namespace) -> None:
     print(f"\n{args.platform.capitalize()} check: {linked}/{total} zones linked")
 
 
+class _CapitalizedHelpFormatter(argparse.HelpFormatter):
+    """Capitalizes section headings and the usage prefix."""
+
+    def start_section(self, heading: str | None) -> None:
+        if heading:
+            heading = heading[0].upper() + heading[1:]
+        super().start_section(heading)
+
+    def _format_usage(self, usage, actions, groups, prefix):
+        if prefix is None:
+            prefix = "Usage: "
+        return super()._format_usage(usage, actions, groups, prefix)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="linkability",
         description="Measures how well tech platforms auto-link IANA top-level domains.",
+        formatter_class=_CapitalizedHelpFormatter,
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(
+        dest="command", required=True, title="commands", metavar=""
+    )
 
     # download
     dl = subparsers.add_parser("download", help="Download zone data")
