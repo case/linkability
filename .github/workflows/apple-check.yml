@@ -74,7 +74,7 @@ jobs:
             echo "No report changes detected"
             exit 0
           fi
-          branch="reports/apple-$(date +%Y-%m-%d)"
+          branch="reports/apple-$(date +%Y-%m-%d)-${RUN_NUMBER}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
@@ -96,3 +96,4 @@ jobs:
           )"
         env:
           GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
