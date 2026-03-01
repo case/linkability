@@ -4,13 +4,24 @@ from __future__ import annotations
 
 import base64
 import re
+import sys
+import urllib.error
 import urllib.request
 
 from .base import Check
 
-_PATTERNS_URL = (
+_PATTERNS_PATH = "core/java/android/util/Patterns.java"
+
+# GitHub mirror (plain text) — primary source, more reliable
+_GITHUB_RAW_URL = (
+    "https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base"
+    f"/master/{_PATTERNS_PATH}"
+)
+
+# AOSP Gitiles (base64-encoded) — fallback
+_GITILES_URL = (
     "https://android.googlesource.com/platform/frameworks/base/"
-    "+/refs/heads/main/core/java/android/util/Patterns.java?format=TEXT"
+    f"+/refs/heads/main/{_PATTERNS_PATH}?format=TEXT"
 )
 
 
@@ -38,11 +49,30 @@ class AndroidCheck(Check):
         return self._cached_tlds
 
 
-def fetch_patterns_java(url: str = _PATTERNS_URL) -> str:
-    """Download and base64-decode Patterns.java from AOSP."""
-    with urllib.request.urlopen(url) as response:
-        encoded = response.read()
-    return base64.b64decode(encoded).decode("utf-8")
+def fetch_patterns_java() -> str:
+    """Download Patterns.java from AOSP, trying GitHub mirror first."""
+    sources = [
+        (_GITHUB_RAW_URL, False),  # (url, is_base64)
+        (_GITILES_URL, True),
+    ]
+    last_error = None
+    for url, is_base64 in sources:
+        try:
+            with urllib.request.urlopen(url, timeout=30) as response:
+                raw = response.read()
+            if is_base64:
+                return base64.b64decode(raw).decode("utf-8")
+            return raw.decode("utf-8")
+        except (urllib.error.HTTPError, urllib.error.URLError) as e:
+            last_error = (url, e)
+            continue
+    url, e = last_error
+    if isinstance(e, urllib.error.HTTPError):
+        print(f"Error: Could not fetch Patterns.java — HTTP {e.code} ({e.reason})")
+    else:
+        print(f"Error: Could not fetch Patterns.java — {e.reason}")
+    print(f"Tried: {', '.join(u for u, _ in sources)}")
+    sys.exit(1)
 
 
 def extract_tld_regex(source: str) -> str:
