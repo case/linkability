@@ -1,0 +1,85 @@
+{
+  "description": "Test fixture — minimal subset of case/iana-data tlds.json",
+  "tlds": [
+    {
+      "tld": "audi",
+      "type": "gtld",
+      "annotations": {
+        "registry_agreement_types": ["base", "brand", "community", "non_sponsored"]
+      }
+    },
+    {
+      "tld": "bmw",
+      "type": "gtld",
+      "annotations": {
+        "registry_agreement_types": ["base", "brand"]
+      }
+    },
+    {
+      "tld": "google",
+      "type": "gtld",
+      "annotations": {
+        "registry_agreement_types": ["base", "brand", "non_sponsored"]
+      }
+    },
+    {
+      "tld": "microsoft",
+      "type": "gtld",
+      "annotations": {
+        "registry_agreement_types": ["base", "brand"]
+      }
+    },
+    {
+      "tld": "nike",
+      "type": "gtld",
+      "annotations": {
+        "registry_agreement_types": ["base", "brand"]
+      }
+    },
+    {
+      "tld": "com",
+      "type": "gtld",
+      "annotations": {
+        "registry_agreement_types": ["non_sponsored"]
+      }
+    },
+    {
+      "tld": "org",
+      "type": "gtld",
+      "annotations": {
+        "registry_agreement_types": ["non_sponsored"]
+      }
+    },
+    {
+      "tld": "net",
+      "type": "gtld",
+      "annotations": {
+        "registry_agreement_types": ["non_sponsored"]
+      }
+    },
+    {
+      "tld": "uk",
+      "type": "country-code",
+      "annotations": {
+        "country_name_iso": "United Kingdom"
+      }
+    },
+    {
+      "tld": "au",
+      "type": "country-code",
+      "annotations": {
+        "country_name_iso": "Australia"
+      }
+    },
+    {
+      "tld": "de",
+      "type": "country-code",
+      "annotations": {}
+    },
+    {
+      "tld": "test",
+      "type": "gtld",
+      "annotations": {}
+    }
+  ]
+}

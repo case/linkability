@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "linkability"
+version = "0.1.0"
+description = "Measures how well popular tech platforms auto-link IANA top-level domains"
+requires-python = ">=3.11"
+dependencies = ["idna>=3.6"]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.4"]
+
+[project.scripts]
+linkability = "linkability.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/linkability"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
