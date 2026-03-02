@@ -152,11 +152,13 @@ def test_build_manifest_entry() -> None:
         zones=zones,
         brand_zones=brand_zones,
         check_results=check_results,
+        release_date="2024-09-16",
     )
 
     assert entry["platform"] == "apple"
     assert entry["platform_type"] == "os"
     assert entry["platform_version"] == "15.3"
+    assert entry["release_date"] == "2024-09-16"
     assert entry["check_date"] == "2026-03-01"
     assert entry["file"] == "apple/15.3.csv"
     assert entry["zones_count"] == 5
@@ -167,6 +169,23 @@ def test_build_manifest_entry() -> None:
     assert entry["linked_cctlds"] == 1  # uk
     assert entry["linked_gtlds"] == 2  # com, audi
     assert entry["linked_brands"] == 1  # audi
+
+
+def test_build_manifest_entry_no_release_date() -> None:
+    """build_manifest_entry with no release_date sets empty string."""
+    from linkability.reports import build_manifest_entry
+
+    entry = build_manifest_entry(
+        platform="electron",
+        platform_type="framework",
+        version="unknown",
+        check_date="2026-03-01",
+        file_rel="electron/unknown.csv",
+        zones=["com"],
+        brand_zones=set(),
+        check_results={"com": True},
+    )
+    assert entry["release_date"] == ""
 
 
 # --- load_manifest / save_manifest (I/O) ---
@@ -232,7 +251,8 @@ def test_build_summary_csv_header() -> None:
 
     rows = build_summary_csv([])
     assert rows[0] == [
-        "platform", "platform_type", "platform_version", "check_date",
+        "platform", "platform_type", "platform_version", "release_date",
+        "check_date",
         "zones_count", "cctld_count", "gtld_count", "brand_count",
         "linked_total", "linked_cctlds", "linked_gtlds", "linked_brands",
         "linked_pct",
@@ -248,6 +268,7 @@ def test_build_summary_csv_data_row() -> None:
             "platform": "apple",
             "platform_type": "os",
             "platform_version": "15.3",
+            "release_date": "2024-09-16",
             "check_date": "2026-03-01",
             "zones_count": 100,
             "cctld_count": 20,
@@ -263,7 +284,7 @@ def test_build_summary_csv_data_row() -> None:
     rows = build_summary_csv(entries)
     assert len(rows) == 2  # header + 1 data row
     assert rows[1] == [
-        "apple", "os", "15.3", "2026-03-01",
+        "apple", "os", "15.3", "2024-09-16", "2026-03-01",
         "100", "20", "80", "30",
         "50", "10", "40", "5",
         "50.0",

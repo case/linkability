@@ -6,7 +6,7 @@ from linkability.checks.android import (
     extract_tld_regex,
     parse_android_version,
 )
-from linkability.checks.android_refs import ANDROID_REFS, resolve_ref
+from linkability.checks.android_refs import ANDROID_REFS, ANDROID_RELEASE_DATES, resolve_ref
 
 
 def test_expand_simple_alternatives() -> None:
@@ -150,3 +150,32 @@ def test_resolve_ref_full_tag_passthrough() -> None:
 def test_android_refs_has_expected_versions() -> None:
     for ver in ["4", "4.1", "5", "6", "7", "8", "9", "10", "11", "12", "12.1", "13", "14", "15", "16"]:
         assert ver in ANDROID_REFS
+
+
+# --- Release dates ---
+
+
+def test_android_release_dates_covers_all_versions() -> None:
+    """Every version in ANDROID_REFS has a corresponding release date."""
+    for version in ANDROID_REFS:
+        assert version in ANDROID_RELEASE_DATES, f"Missing release date for Android {version}"
+
+
+def test_android_release_dates_format() -> None:
+    """Release dates are valid YYYY-MM-DD strings."""
+    import re
+
+    for version, date_str in ANDROID_RELEASE_DATES.items():
+        assert re.match(r"\d{4}-\d{2}-\d{2}$", date_str), (
+            f"Bad date format for Android {version}: {date_str}"
+        )
+
+
+def test_android_check_release_date() -> None:
+    check = AndroidCheck(aosp_ref="14")
+    assert check.release_date == "2023-10-04"
+
+
+def test_android_check_release_date_unknown_ref() -> None:
+    check = AndroidCheck(aosp_ref="some-custom-ref")
+    assert check.release_date is None

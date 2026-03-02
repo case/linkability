@@ -10,7 +10,7 @@ import sys
 import urllib.error
 import urllib.request
 
-from .android_refs import DEFAULT_VERSION, ANDROID_REFS, resolve_ref
+from .android_refs import DEFAULT_VERSION, ANDROID_REFS, ANDROID_RELEASE_DATES, resolve_ref
 from .base import Check
 
 _PATTERNS_PATH = "core/java/android/util/Patterns.java"
@@ -46,6 +46,10 @@ class AndroidCheck(Check):
     @property
     def platform_version(self) -> str:
         return parse_android_version(self._aosp_ref)
+
+    @property
+    def release_date(self) -> str | None:
+        return ANDROID_RELEASE_DATES.get(self.platform_version)
 
     @property
     def aosp_ref(self) -> str:

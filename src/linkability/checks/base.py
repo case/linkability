@@ -23,6 +23,11 @@ class Check(ABC):
     def platform_version(self) -> str:
         """Platform version string, detected at runtime."""
 
+    @property
+    def release_date(self) -> str | None:
+        """Release date of this platform version (YYYY-MM-DD), or None if unknown."""
+        return None
+
     @abstractmethod
     def is_available(self) -> bool:
         """Whether this check can run on the current system."""

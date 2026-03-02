@@ -111,6 +111,7 @@ def cmd_report_csv(args: argparse.Namespace) -> None:
         brand_zones=brand_zones,
         check_results=results,
         source_ref=source_ref,
+        release_date=check.release_date,
     )
     write_entry_json(entry)
 
@@ -153,6 +154,7 @@ def cmd_report_android_all(args: argparse.Namespace) -> None:
             brand_zones=brand_zones,
             check_results=results,
             source_ref=check.aosp_ref,
+            release_date=check.release_date,
         )
         write_entry_json(entry)
         print(f"{linked}/{len(zones)} linked, saved to {path}")

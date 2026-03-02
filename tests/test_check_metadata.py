@@ -17,6 +17,11 @@ def test_check_abc_has_platform_version() -> None:
     assert hasattr(Check, "platform_version")
 
 
+def test_check_abc_has_release_date() -> None:
+    """Check ABC provides a default release_date property."""
+    assert hasattr(Check, "release_date")
+
+
 def test_stub_checks_have_metadata() -> None:
     """Stub checks (Electron, Windows) implement platform_type and platform_version."""
     from linkability.checks.electron import ElectronCheck
@@ -25,10 +30,12 @@ def test_stub_checks_have_metadata() -> None:
     electron = ElectronCheck()
     assert electron.platform_type == "framework"
     assert electron.platform_version == "unknown"
+    assert electron.release_date is None
 
     windows = WindowsCheck()
     assert windows.platform_type == "os"
     assert windows.platform_version == "unknown"
+    assert windows.release_date is None
 
 
 def test_android_check_metadata() -> None:

@@ -7,6 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from .apple_refs import APPLE_RELEASE_DATES
 from .base import Check
 
 # Path to the Swift check package, relative to the project root
@@ -31,6 +32,11 @@ class AppleCheck(Check):
             text=True,
         )
         return result.stdout.strip()
+
+    @property
+    def release_date(self) -> str | None:
+        major = self.platform_version.split(".")[0]
+        return APPLE_RELEASE_DATES.get(major)
 
     def is_available(self) -> bool:
         return sys.platform == "darwin"

@@ -60,6 +60,7 @@ def build_manifest_entry(
     brand_zones: set[str],
     check_results: dict[str, bool],
     source_ref: str | None = None,
+    release_date: str | None = None,
 ) -> dict:
     """Build a manifest entry dict with zone counts and linked counts."""
     cctld_count = 0
@@ -92,6 +93,7 @@ def build_manifest_entry(
         "platform": platform,
         "platform_type": platform_type,
         "platform_version": version,
+        "release_date": release_date or "",
         "check_date": check_date,
         "file": file_rel,
         "zones_count": len(zones),
@@ -168,7 +170,8 @@ def rebuild_from_sidecars(output_dir: str = "Reports") -> None:
 
 
 _SUMMARY_HEADER = [
-    "platform", "platform_type", "platform_version", "check_date",
+    "platform", "platform_type", "platform_version", "release_date",
+    "check_date",
     "zones_count", "cctld_count", "gtld_count", "brand_count",
     "linked_total", "linked_cctlds", "linked_gtlds", "linked_brands",
     "linked_pct",
@@ -188,6 +191,7 @@ def build_summary_csv(entries: list[dict]) -> list[list[str]]:
             entry.get("platform", ""),
             entry.get("platform_type", ""),
             entry.get("platform_version", ""),
+            entry.get("release_date", ""),
             entry.get("check_date", ""),
             str(zones_count),
             str(entry.get("cctld_count", 0)),
