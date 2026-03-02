@@ -81,5 +81,9 @@ class WindowsCheck(Check):
             check=True,
         )
 
+        # Print diagnostics (canary tests, etc.) from the binary.
+        if result.stderr:
+            print(result.stderr, end="")
+
         data = json.loads(result.stdout)
         return data["results"]
