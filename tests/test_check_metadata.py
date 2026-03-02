@@ -34,8 +34,11 @@ def test_stub_checks_have_metadata() -> None:
 
     windows = WindowsCheck()
     assert windows.platform_type == "os"
-    assert windows.platform_version == "unknown"
-    assert windows.release_date is None
+    if sys.platform == "win32":
+        assert windows.platform_version != "unknown"
+    else:
+        assert windows.platform_version == "unknown"
+        assert windows.release_date is None
 
 
 def test_android_check_metadata() -> None:

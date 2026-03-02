@@ -1,0 +1,108 @@
+name: Windows Platform Check
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Weekly on Mondays at 9am UTC
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    strategy:
+      matrix:
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0"
+
+      - name: Build Windows check binary
+        run: dotnet build -c Release
+        working-directory: checks/windows
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Download latest zone data
+        run: |
+          uv run linkability download zones
+          uv run linkability download brands
+
+      - name: Run Windows platform check
+        run: uv run linkability report csv --platform windows
+
+      - name: Show summary
+        run: uv run linkability report summary --platform windows
+
+      - name: Upload snapshots
+        uses: actions/upload-artifact@v7
+        with:
+          name: snapshot-${{ matrix.os }}
+          path: Reports/snapshots/
+
+  publish:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v6
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Download all snapshot artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts/
+
+      - name: Merge snapshots into Reports/
+        run: |
+          for dir in artifacts/snapshot-*; do
+            cp -r "$dir"/* Reports/snapshots/
+          done
+
+      - name: Rebuild manifest and summary
+        run: uv run linkability report rebuild
+
+      - name: Create PR if reports changed
+        run: |
+          if git diff --quiet HEAD -- Reports/; then
+            echo "No report changes detected"
+            exit 0
+          fi
+          branch="reports/windows-$(date +%Y-%m-%d)-${RUN_NUMBER}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add Reports/
+          git commit -m "Update Windows platform reports $(date +%Y-%m-%d)"
+          git push -u origin "$branch"
+          gh pr create \
+            --title "Update Windows platform reports $(date +%Y-%m-%d)" \
+            --body "$(cat <<'EOF'
+          ## Windows Platform Check
+
+          Automated weekly check of TLD auto-linking via RichEdit EM_AUTOURLDETECT.
+
+          **Runners:** windows-2022, windows-2025
+          **Source:** `msftedit.dll` RICHEDIT50W control with AURL_ENABLEURL
+
+          See `Reports/summary.csv` for aggregate stats and `Reports/snapshots/windows/` for per-zone details.
+          EOF
+          )"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
