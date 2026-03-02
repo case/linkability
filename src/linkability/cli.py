@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 from datetime import date
+from pathlib import Path
 
 from .checks.android import AndroidCheck
 from .checks.apple import AppleCheck
@@ -78,9 +79,18 @@ def cmd_report_csv(args: argparse.Namespace) -> None:
     zones, brand_zones = _load_zones()
     check, results = _run_check(args.platform, zones)
 
-    # Build and write snapshot CSV
+    # Build snapshot CSV content
     rows = build_csv_rows(zones, brand_zones, results)
     version = check.platform_version
+    new_content = "\n".join(",".join(row) for row in rows) + "\n"
+
+    # Compare against existing snapshot — skip if data unchanged
+    snapshot_path = Path("Reports") / "snapshots" / args.platform / f"{version}.csv"
+    if snapshot_path.exists() and snapshot_path.read_text(encoding="utf-8") == new_content:
+        print(f"No changes for {args.platform} {version}, skipping update")
+        return
+
+    # Write snapshot CSV
     path = write_snapshot(args.platform, version, rows)
 
     # Build manifest entry and write sidecar JSON
