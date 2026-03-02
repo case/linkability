@@ -1,0 +1,16 @@
+{
+  "platform": "android",
+  "platform_type": "os",
+  "platform_version": "16",
+  "check_date": "2026-03-01",
+  "file": "android/16.csv",
+  "zones_count": 1436,
+  "cctld_count": 248,
+  "gtld_count": 1188,
+  "brand_count": 446,
+  "linked_total": 1285,
+  "linked_cctlds": 248,
+  "linked_gtlds": 1037,
+  "linked_brands": 433,
+  "source_ref": "android-16.0.0_r1"
+}

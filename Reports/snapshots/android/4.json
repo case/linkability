@@ -1,0 +1,16 @@
+{
+  "platform": "android",
+  "platform_type": "os",
+  "platform_version": "4",
+  "check_date": "2026-03-01",
+  "file": "android/4.csv",
+  "zones_count": 1436,
+  "cctld_count": 248,
+  "gtld_count": 1188,
+  "brand_count": 446,
+  "linked_total": 267,
+  "linked_cctlds": 245,
+  "linked_gtlds": 22,
+  "linked_brands": 0,
+  "source_ref": "android-4.0.4_r1"
+}

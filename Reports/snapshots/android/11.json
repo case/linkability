@@ -1,0 +1,16 @@
+{
+  "platform": "android",
+  "platform_type": "os",
+  "platform_version": "11",
+  "check_date": "2026-03-01",
+  "file": "android/11.csv",
+  "zones_count": 1436,
+  "cctld_count": 248,
+  "gtld_count": 1188,
+  "brand_count": 446,
+  "linked_total": 953,
+  "linked_cctlds": 247,
+  "linked_gtlds": 706,
+  "linked_brands": 206,
+  "source_ref": "android-11.0.0_r1"
+}
