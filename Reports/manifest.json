@@ -380,6 +380,38 @@
       "linked_cctlds": 91,
       "linked_gtlds": 34,
       "linked_brands": 1
+    },
+    {
+      "platform": "windows",
+      "platform_type": "os",
+      "platform_version": "10",
+      "release_date": "2015-07-29",
+      "check_date": "2026-03-02",
+      "file": "windows/10.csv",
+      "zones_count": 1436,
+      "cctld_count": 248,
+      "gtld_count": 1188,
+      "brand_count": 361,
+      "linked_total": 0,
+      "linked_cctlds": 0,
+      "linked_gtlds": 0,
+      "linked_brands": 0
+    },
+    {
+      "platform": "windows",
+      "platform_type": "os",
+      "platform_version": "11",
+      "release_date": "2021-10-05",
+      "check_date": "2026-03-02",
+      "file": "windows/11.csv",
+      "zones_count": 1436,
+      "cctld_count": 248,
+      "gtld_count": 1188,
+      "brand_count": 361,
+      "linked_total": 0,
+      "linked_cctlds": 0,
+      "linked_gtlds": 0,
+      "linked_brands": 0
     }
   ]
 }
