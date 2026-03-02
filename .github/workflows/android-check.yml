@@ -1,0 +1,63 @@
+name: Android Platform Check
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Weekly on Mondays at 9am UTC
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v6
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Download latest zone data
+        run: |
+          uv run linkability download zones
+          uv run linkability download brands
+
+      - name: Run Android checks for all refs
+        run: uv run linkability report android-all
+
+      - name: Show summary
+        run: uv run linkability report summary --platform android
+
+      - name: Create PR if reports changed
+        run: |
+          if git diff --quiet HEAD -- Reports/; then
+            echo "No report changes detected"
+            exit 0
+          fi
+          branch="reports/android-$(date +%Y-%m-%d)-${RUN_NUMBER}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add Reports/
+          git commit -m "Update Android platform reports $(date +%Y-%m-%d)"
+          git push -u origin "$branch"
+          gh pr create \
+            --title "Update Android platform reports $(date +%Y-%m-%d)" \
+            --body "$(cat <<'EOF'
+          ## Android Platform Check
+
+          Automated weekly check of TLD auto-linking across Android versions.
+
+          **Refs:** All versions in `android_refs.py`
+          **Source:** AOSP `Patterns.java` TLD regex
+
+          See `Reports/summary.csv` for aggregate stats and `Reports/snapshots/android/` for per-zone details.
+          EOF
+          )"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
