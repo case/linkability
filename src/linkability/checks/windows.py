@@ -77,6 +77,7 @@ class WindowsCheck(Check):
             input=input_data,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=True,
         )
 

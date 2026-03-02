@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 
 class WindowsCheck
@@ -62,6 +63,10 @@ class WindowsCheck
 
     static void Main()
     {
+        // Use UTF-8 for stdin/stdout to handle IDN zone names (e.g. 日本).
+        Console.InputEncoding = Encoding.UTF8;
+        Console.OutputEncoding = Encoding.UTF8;
+
         // Load msftedit.dll to register the RICHEDIT50W window class.
         IntPtr hMod = LoadLibrary("msftedit.dll");
         if (hMod == IntPtr.Zero)
