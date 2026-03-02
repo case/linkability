@@ -8,9 +8,9 @@
   "cctld_count": 248,
   "gtld_count": 1188,
   "brand_count": 446,
-  "linked_total": 1285,
+  "linked_total": 1434,
   "linked_cctlds": 248,
-  "linked_gtlds": 1037,
-  "linked_brands": 433,
+  "linked_gtlds": 1186,
+  "linked_brands": 446,
   "source_ref": "android-16.0.0_r1"
 }
