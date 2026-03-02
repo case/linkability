@@ -1,0 +1,4 @@
+# Enforce LF line endings for report data files so that Windows CI runners
+# (which default to core.autocrlf=true) don't introduce CRLF diffs.
+Reports/**/*.csv text eol=lf
+Reports/**/*.json text eol=lf

@@ -36,7 +36,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: snapshot-${{ matrix.os }}
-          path: Reports/snapshots/
+          path: Reports/snapshots/apple/
 
   publish:
     needs: check
@@ -61,8 +61,9 @@ jobs:
 
       - name: Merge snapshots into Reports/
         run: |
+          mkdir -p Reports/snapshots/apple
           for dir in artifacts/snapshot-*; do
-            cp -r "$dir"/* Reports/snapshots/
+            cp -r "$dir"/* Reports/snapshots/apple/
           done
 
       - name: Rebuild manifest and summary
