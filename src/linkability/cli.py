@@ -8,6 +8,7 @@ from datetime import date
 from pathlib import Path
 
 from .checks.android import AndroidCheck
+from .checks.android_refs import ANDROID_REFS
 from .checks.apple import AppleCheck
 from .checks.electron import ElectronCheck
 from .checks.windows import WindowsCheck
@@ -35,12 +36,15 @@ _CHECKS = {
 }
 
 
-def _get_check(platform: str):
+def _get_check(platform: str, ref: str | None = None):
     cls = _CHECKS.get(platform)
     if cls is None:
         print(f"Unknown platform: {platform}. Available: {', '.join(_CHECKS)}")
         sys.exit(1)
-    check = cls()
+    if ref and platform == "android":
+        check = cls(aosp_ref=ref)
+    else:
+        check = cls()
     if not check.is_available():
         print(f"Platform check '{platform}' is not available on this system.")
         sys.exit(1)
@@ -60,9 +64,9 @@ def _load_zones() -> tuple[list[str], set[str]]:
     return zones, brand_zones
 
 
-def _run_check(platform: str, zones: list[str]) -> tuple:
+def _run_check(platform: str, zones: list[str], ref: str | None = None) -> tuple:
     """Run a platform check and return (check_instance, results)."""
-    check = _get_check(platform)
+    check = _get_check(platform, ref=ref)
     results = check.check_zones(zones)
     return check, results
 
@@ -77,7 +81,8 @@ def cmd_download_brands(args: argparse.Namespace) -> None:
 
 def cmd_report_csv(args: argparse.Namespace) -> None:
     zones, brand_zones = _load_zones()
-    check, results = _run_check(args.platform, zones)
+    ref = getattr(args, "ref", None)
+    check, results = _run_check(args.platform, zones, ref=ref)
 
     # Build snapshot CSV content
     rows = build_csv_rows(zones, brand_zones, results)
@@ -95,6 +100,7 @@ def cmd_report_csv(args: argparse.Namespace) -> None:
 
     # Build manifest entry and write sidecar JSON
     file_rel = f"{args.platform}/{version}.csv"
+    source_ref = getattr(check, "aosp_ref", None)
     entry = build_manifest_entry(
         platform=args.platform,
         platform_type=check.platform_type,
@@ -104,6 +110,7 @@ def cmd_report_csv(args: argparse.Namespace) -> None:
         zones=zones,
         brand_zones=brand_zones,
         check_results=results,
+        source_ref=source_ref,
     )
     write_entry_json(entry)
 
@@ -118,6 +125,43 @@ def cmd_report_csv(args: argparse.Namespace) -> None:
     print(f"Snapshot saved to {path}")
 
 
+def cmd_report_android_all(args: argparse.Namespace) -> None:
+    zones, brand_zones = _load_zones()
+    total = len(ANDROID_REFS)
+    for i, (version, ref) in enumerate(ANDROID_REFS.items(), 1):
+        print(f"[{i}/{total}] Android {version} ({ref})... ", end="", flush=True)
+        check, results = _run_check("android", zones, ref=ref)
+
+        rows = build_csv_rows(zones, brand_zones, results)
+        new_content = "\n".join(",".join(row) for row in rows) + "\n"
+
+        snapshot_path = Path("Reports") / "snapshots" / "android" / f"{version}.csv"
+        if snapshot_path.exists() and snapshot_path.read_text(encoding="utf-8") == new_content:
+            print("no changes, skipped")
+            continue
+
+        path = write_snapshot("android", version, rows)
+        file_rel = f"android/{version}.csv"
+        linked = sum(1 for v in results.values() if v)
+        entry = build_manifest_entry(
+            platform="android",
+            platform_type=check.platform_type,
+            version=version,
+            check_date=date.today().isoformat(),
+            file_rel=file_rel,
+            zones=zones,
+            brand_zones=brand_zones,
+            check_results=results,
+            source_ref=check.aosp_ref,
+        )
+        write_entry_json(entry)
+        print(f"{linked}/{len(zones)} linked, saved to {path}")
+
+    # Rebuild manifest and summary from all sidecars
+    rebuild_from_sidecars()
+    print("Rebuilt manifest.json and summary.csv")
+
+
 def cmd_report_rebuild(args: argparse.Namespace) -> None:
     rebuild_from_sidecars()
     print("Rebuilt manifest.json and summary.csv from snapshot sidecars")
@@ -125,7 +169,8 @@ def cmd_report_rebuild(args: argparse.Namespace) -> None:
 
 def cmd_report_summary(args: argparse.Namespace) -> None:
     zones, brand_zones = _load_zones()
-    _, results = _run_check(args.platform, zones)
+    ref = getattr(args, "ref", None)
+    _, results = _run_check(args.platform, zones, ref=ref)
     generate_summary(
         args.platform.capitalize(), results,
         zones=zones, brand_zones=brand_zones,
@@ -177,7 +222,8 @@ def cmd_validate_cctld_brands(args: argparse.Namespace) -> None:
 
 def cmd_check(args: argparse.Namespace) -> None:
     zones, _ = _load_zones()
-    _, results = _run_check(args.platform, zones)
+    ref = getattr(args, "ref", None)
+    _, results = _run_check(args.platform, zones, ref=ref)
     linked = sum(1 for v in results.values() if v)
     total = len(results)
     print(f"\n{args.platform.capitalize()} check: {linked}/{total} zones linked")
@@ -231,10 +277,14 @@ def main() -> None:
     rpt_sub = rpt.add_subparsers(dest="format", required=True)
     rpt_csv = rpt_sub.add_parser("csv", help="Generate CSV report")
     rpt_csv.add_argument("--platform", required=True, choices=list(_CHECKS))
+    rpt_csv.add_argument("--ref", help="AOSP ref for Android (e.g. android-16.0.0_r1)")
     rpt_csv.set_defaults(func=cmd_report_csv)
     rpt_summary = rpt_sub.add_parser("summary", help="Print text summary")
     rpt_summary.add_argument("--platform", required=True, choices=list(_CHECKS))
+    rpt_summary.add_argument("--ref", help="AOSP ref for Android (e.g. android-16.0.0_r1)")
     rpt_summary.set_defaults(func=cmd_report_summary)
+    rpt_android_all = rpt_sub.add_parser("android-all", help="Run all Android refs and generate snapshots")
+    rpt_android_all.set_defaults(func=cmd_report_android_all)
     rpt_rebuild = rpt_sub.add_parser("rebuild", help="Rebuild manifest and summary from snapshots")
     rpt_rebuild.set_defaults(func=cmd_report_rebuild)
 
@@ -257,6 +307,7 @@ def main() -> None:
     # check
     chk = subparsers.add_parser("check", help="Run a platform check")
     chk.add_argument("platform", choices=list(_CHECKS))
+    chk.add_argument("--ref", help="AOSP ref for Android (e.g. android-16.0.0_r1)")
     chk.set_defaults(func=cmd_check)
 
     args = parser.parse_args()

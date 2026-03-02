@@ -59,6 +59,7 @@ def build_manifest_entry(
     zones: list[str],
     brand_zones: set[str],
     check_results: dict[str, bool],
+    source_ref: str | None = None,
 ) -> dict:
     """Build a manifest entry dict with zone counts and linked counts."""
     cctld_count = 0
@@ -87,7 +88,7 @@ def build_manifest_entry(
                 if is_linked:
                     linked_brands += 1
 
-    return {
+    entry = {
         "platform": platform,
         "platform_type": platform_type,
         "platform_version": version,
@@ -102,6 +103,9 @@ def build_manifest_entry(
         "linked_gtlds": linked_gtlds,
         "linked_brands": linked_brands,
     }
+    if source_ref:
+        entry["source_ref"] = source_ref
+    return entry
 
 
 def load_manifest(output_dir: str = "Reports") -> list[dict]:
