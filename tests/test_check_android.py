@@ -56,14 +56,13 @@ def test_expand_mixed_range_and_literal_in_class() -> None:
     assert tlds == {"a", "b", "c", "e"}
 
 
-
 def test_extract_tld_regex() -> None:
     # Simplified mock of the Patterns.java constant
-    source = '''
+    source = """
     static final String IANA_TOP_LEVEL_DOMAINS = "(?:"
         + "com|net|org"
         + ")";
-    '''
+    """
     regex = extract_tld_regex(source)
     assert "com" in regex
     assert "net" in regex
@@ -71,11 +70,11 @@ def test_extract_tld_regex() -> None:
 
 
 def test_full_pipeline_with_mock_source() -> None:
-    source = '''
+    source = """
     public static final String IANA_TOP_LEVEL_DOMAINS = "(?:"
         + "com|net|org|a[cd]"
         + ")";
-    '''
+    """
     regex = extract_tld_regex(source)
     tlds = expand_regex_to_tlds(regex)
     assert "com" in tlds
@@ -148,7 +147,23 @@ def test_resolve_ref_full_tag_passthrough() -> None:
 
 
 def test_android_refs_has_expected_versions() -> None:
-    for ver in ["4", "4.1", "5", "6", "7", "8", "9", "10", "11", "12", "12.1", "13", "14", "15", "16"]:
+    for ver in [
+        "4",
+        "4.1",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "12.1",
+        "13",
+        "14",
+        "15",
+        "16",
+    ]:
         assert ver in ANDROID_REFS
 
 

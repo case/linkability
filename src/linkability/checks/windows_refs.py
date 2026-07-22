@@ -13,8 +13,8 @@ from __future__ import annotations
 
 # Maps CurrentBuild registry value to consumer-friendly version name.
 WINDOWS_BUILD_MAP: dict[str, str] = {
-    "20348": "10",   # Windows Server 2022
-    "26100": "11",   # Windows Server 2025
+    "20348": "10",  # Windows Server 2022
+    "26100": "11",  # Windows Server 2025
 }
 
 # Maps consumer version name to initial public release date (YYYY-MM-DD).

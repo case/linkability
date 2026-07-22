@@ -174,8 +174,10 @@ def cmd_report_summary(args: argparse.Namespace) -> None:
     ref = getattr(args, "ref", None)
     _, results = _run_check(args.platform, zones, ref=ref)
     generate_summary(
-        args.platform.capitalize(), results,
-        zones=zones, brand_zones=brand_zones,
+        args.platform.capitalize(),
+        results,
+        zones=zones,
+        brand_zones=brand_zones,
     )
 
 
@@ -262,9 +264,7 @@ def main() -> None:
         prog="linkability",
         description="Measures how well tech platforms auto-link IANA top-level domains.",
     )
-    subparsers = parser.add_subparsers(
-        dest="command", required=True, title="commands", metavar=""
-    )
+    subparsers = parser.add_subparsers(dest="command", required=True, title="commands", metavar="")
 
     # download
     dl = subparsers.add_parser("download", help="Download zone data")
@@ -285,7 +285,9 @@ def main() -> None:
     rpt_summary.add_argument("--platform", required=True, choices=list(_CHECKS))
     rpt_summary.add_argument("--ref", help="AOSP ref for Android (e.g. android-16.0.0_r1)")
     rpt_summary.set_defaults(func=cmd_report_summary)
-    rpt_android_all = rpt_sub.add_parser("android-all", help="Run all Android refs and generate snapshots")
+    rpt_android_all = rpt_sub.add_parser(
+        "android-all", help="Run all Android refs and generate snapshots"
+    )
     rpt_android_all.set_defaults(func=cmd_report_android_all)
     rpt_rebuild = rpt_sub.add_parser("rebuild", help="Rebuild manifest and summary from snapshots")
     rpt_rebuild.set_defaults(func=cmd_report_rebuild)

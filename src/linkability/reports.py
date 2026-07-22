@@ -127,15 +127,10 @@ def save_manifest(entries: list[dict], output_dir: str = "Reports") -> None:
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
-def upsert_manifest_entry(
-    entries: list[dict], new_entry: dict
-) -> list[dict]:
+def upsert_manifest_entry(entries: list[dict], new_entry: dict) -> list[dict]:
     """Add or replace a manifest entry, keyed by platform + platform_version."""
     key = (new_entry["platform"], new_entry["platform_version"])
-    result = [
-        e for e in entries
-        if (e["platform"], e["platform_version"]) != key
-    ]
+    result = [e for e in entries if (e["platform"], e["platform_version"]) != key]
     result.append(new_entry)
     return result
 
@@ -170,10 +165,19 @@ def rebuild_from_sidecars(output_dir: str = "Reports") -> None:
 
 
 _SUMMARY_HEADER = [
-    "platform", "platform_type", "platform_version", "release_date",
+    "platform",
+    "platform_type",
+    "platform_version",
+    "release_date",
     "check_date",
-    "zones_count", "cctld_count", "gtld_count", "brand_count",
-    "linked_total", "linked_cctlds", "linked_gtlds", "linked_brands",
+    "zones_count",
+    "cctld_count",
+    "gtld_count",
+    "brand_count",
+    "linked_total",
+    "linked_cctlds",
+    "linked_gtlds",
+    "linked_brands",
     "linked_pct",
 ]
 
@@ -184,25 +188,25 @@ def build_summary_csv(entries: list[dict]) -> list[list[str]]:
     for entry in entries:
         zones_count = entry.get("zones_count", 0)
         linked_total = entry.get("linked_total", 0)
-        linked_pct = (
-            round(linked_total / zones_count * 100, 1) if zones_count > 0 else 0.0
+        linked_pct = round(linked_total / zones_count * 100, 1) if zones_count > 0 else 0.0
+        rows.append(
+            [
+                entry.get("platform", ""),
+                entry.get("platform_type", ""),
+                entry.get("platform_version", ""),
+                entry.get("release_date", ""),
+                entry.get("check_date", ""),
+                str(zones_count),
+                str(entry.get("cctld_count", 0)),
+                str(entry.get("gtld_count", 0)),
+                str(entry.get("brand_count", 0)),
+                str(linked_total),
+                str(entry.get("linked_cctlds", 0)),
+                str(entry.get("linked_gtlds", 0)),
+                str(entry.get("linked_brands", 0)),
+                str(linked_pct),
+            ]
         )
-        rows.append([
-            entry.get("platform", ""),
-            entry.get("platform_type", ""),
-            entry.get("platform_version", ""),
-            entry.get("release_date", ""),
-            entry.get("check_date", ""),
-            str(zones_count),
-            str(entry.get("cctld_count", 0)),
-            str(entry.get("gtld_count", 0)),
-            str(entry.get("brand_count", 0)),
-            str(linked_total),
-            str(entry.get("linked_cctlds", 0)),
-            str(entry.get("linked_gtlds", 0)),
-            str(entry.get("linked_brands", 0)),
-            str(linked_pct),
-        ])
     return rows
 
 

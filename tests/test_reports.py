@@ -126,8 +126,7 @@ def test_write_snapshot_overwrites_existing(
 
         content = path.read_text(encoding="utf-8")
         data_rows = {
-            line.split(",")[0]: line.split(",")
-            for line in content.strip().splitlines()[1:]
+            line.split(",")[0]: line.split(",") for line in content.strip().splitlines()[1:]
         }
         assert data_rows["org"][3] == "true"
 
@@ -251,10 +250,19 @@ def test_build_summary_csv_header() -> None:
 
     rows = build_summary_csv([])
     assert rows[0] == [
-        "platform", "platform_type", "platform_version", "release_date",
+        "platform",
+        "platform_type",
+        "platform_version",
+        "release_date",
         "check_date",
-        "zones_count", "cctld_count", "gtld_count", "brand_count",
-        "linked_total", "linked_cctlds", "linked_gtlds", "linked_brands",
+        "zones_count",
+        "cctld_count",
+        "gtld_count",
+        "brand_count",
+        "linked_total",
+        "linked_cctlds",
+        "linked_gtlds",
+        "linked_brands",
         "linked_pct",
     ]
 
@@ -284,9 +292,19 @@ def test_build_summary_csv_data_row() -> None:
     rows = build_summary_csv(entries)
     assert len(rows) == 2  # header + 1 data row
     assert rows[1] == [
-        "apple", "os", "15.3", "2024-09-16", "2026-03-01",
-        "100", "20", "80", "30",
-        "50", "10", "40", "5",
+        "apple",
+        "os",
+        "15.3",
+        "2024-09-16",
+        "2026-03-01",
+        "100",
+        "20",
+        "80",
+        "30",
+        "50",
+        "10",
+        "40",
+        "5",
         "50.0",
     ]
 

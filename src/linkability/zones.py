@@ -60,8 +60,7 @@ def download_iana_zones(output_path: str | Path = "Data-Zones/zones-full.txt") -
 
 
 _TLDS_JSON_URL = (
-    "https://raw.githubusercontent.com/case/iana-data"
-    "/refs/heads/main/data/generated/tlds.json"
+    "https://raw.githubusercontent.com/case/iana-data/refs/heads/main/data/generated/tlds.json"
 )
 
 
@@ -118,9 +117,7 @@ def extract_brand_zones(tlds_json_path: str | Path) -> set[str]:
 
     brands: set[str] = set()
     for entry in data["tlds"]:
-        agreement_types = entry.get("annotations", {}).get(
-            "registry_agreement_types", []
-        )
+        agreement_types = entry.get("annotations", {}).get("registry_agreement_types", [])
         if "brand" in agreement_types:
             brands.add(entry["tld"].lower())
 

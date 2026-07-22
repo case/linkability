@@ -42,27 +42,27 @@ ANDROID_REFS: dict[str, str] = {
 # Primary source: Wikipedia (Android version history).
 # Secondary: https://endoflife.date/android
 ANDROID_RELEASE_DATES: dict[str, str] = {
-    "4": "2011-10-19",      # Ice Cream Sandwich
-    "4.1": "2012-07-09",    # Jelly Bean
-    "4.2": "2012-11-13",    # Jelly Bean
-    "4.3": "2013-07-24",    # Jelly Bean
-    "4.4": "2013-10-31",    # KitKat
-    "5": "2014-11-12",      # Lollipop
-    "5.1": "2015-03-09",    # Lollipop
-    "6": "2015-10-05",      # Marshmallow
-    "7": "2016-08-22",      # Nougat
-    "7.1": "2016-10-04",    # Nougat
-    "8": "2017-08-21",      # Oreo
-    "8.1": "2017-12-05",    # Oreo
-    "9": "2018-08-06",      # Pie
-    "10": "2019-09-03",     # Android 10
-    "11": "2020-09-08",     # Android 11
-    "12": "2021-10-04",     # Android 12
-    "12.1": "2022-03-07",   # Android 12L
-    "13": "2022-08-15",     # Android 13
-    "14": "2023-10-04",     # Android 14
-    "15": "2024-10-15",     # Android 15
-    "16": "2025-06-10",     # Android 16 (Baklava)
+    "4": "2011-10-19",  # Ice Cream Sandwich
+    "4.1": "2012-07-09",  # Jelly Bean
+    "4.2": "2012-11-13",  # Jelly Bean
+    "4.3": "2013-07-24",  # Jelly Bean
+    "4.4": "2013-10-31",  # KitKat
+    "5": "2014-11-12",  # Lollipop
+    "5.1": "2015-03-09",  # Lollipop
+    "6": "2015-10-05",  # Marshmallow
+    "7": "2016-08-22",  # Nougat
+    "7.1": "2016-10-04",  # Nougat
+    "8": "2017-08-21",  # Oreo
+    "8.1": "2017-12-05",  # Oreo
+    "9": "2018-08-06",  # Pie
+    "10": "2019-09-03",  # Android 10
+    "11": "2020-09-08",  # Android 11
+    "12": "2021-10-04",  # Android 12
+    "12.1": "2022-03-07",  # Android 12L
+    "13": "2022-08-15",  # Android 13
+    "14": "2023-10-04",  # Android 14
+    "15": "2024-10-15",  # Android 15
+    "16": "2025-06-10",  # Android 16 (Baklava)
 }
 
 # The version used when no --ref is specified
