@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = ["idna>=3.6"]
 
 [dependency-groups]
-dev = ["pytest>=8.0", "ruff>=0.4"]
+dev = ["pytest>=9.1.1", "ruff>=0.15.20"]
 
 [project.scripts]
 linkability = "linkability.cli:main"
