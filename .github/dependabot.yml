@@ -1,0 +1,30 @@
+---
+version: 2
+
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      day: "friday"
+      interval: "monthly"
+      timezone: "America/Los_Angeles"
+    cooldown:
+      default-days: 14
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # Python dependencies via uv (reads pyproject.toml + uv.lock).
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      day: "friday"
+      interval: "monthly"
+      timezone: "America/Los_Angeles"
+    cooldown:
+      default-days: 14
+    groups:
+      python:
+        patterns:
+          - "*"
