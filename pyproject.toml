@@ -7,7 +7,7 @@ name = "linkability"
 version = "0.1.0"
 description = "Measures how well popular tech platforms auto-link IANA top-level domains"
 requires-python = ">=3.11"
-dependencies = ["idna>=3.6"]
+dependencies = ["idna>=3.18"]
 
 [dependency-groups]
 dev = ["pytest>=8.0", "ruff>=0.4"]
