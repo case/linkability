@@ -13,10 +13,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5.4.0
         with:
           dotnet-version: "8.0"
 
@@ -25,7 +25,7 @@ jobs:
         working-directory: checks/windows
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v8.3.2
 
       - name: Install dependencies
         run: uv sync
@@ -55,10 +55,10 @@ jobs:
       pull-requests: write
     steps:
       - name: Check out repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v8.3.2
 
       - name: Install dependencies
         run: uv sync
