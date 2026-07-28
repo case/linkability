@@ -1233,6 +1233,7 @@ watch,gtld,false,true
 watches,gtld,false,true
 weather,gtld,false,true
 weatherchannel,gtld,true,true
+web,gtld,false,false
 webcam,gtld,false,true
 weber,gtld,true,true
 website,gtld,false,true
