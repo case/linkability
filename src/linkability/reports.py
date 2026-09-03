@@ -9,7 +9,6 @@ from .analyze import ZoneSummary, compute_summary
 from .classify import classify_zone, is_cctld
 from .zones import read_zones
 
-
 # --- Snapshot CSV ---
 
 
@@ -235,21 +234,33 @@ def format_summary(summary: ZoneSummary, platform: str) -> str:
         "Summary of all zones:",
         f"- {fmt(summary.total_zones)}\t Total IANA zones",
         f"- {fmt(summary.gtld_count)}\t gTLDs, {summary.gtld_percentage_of_total:.1f}% of total",
-        f"- {fmt(summary.gtld_brand_count)}\t - Brand gTLDs, "
-        f"{summary.gtld_brand_percentage_of_gtld:.1f}% of gTLDs and "
-        f"{summary.gtld_brand_percentage_of_total:.1f}% of all zones",
+        (
+            f"- {fmt(summary.gtld_brand_count)}\t - Brand gTLDs, "
+            f"{summary.gtld_brand_percentage_of_gtld:.1f}% of gTLDs and "
+            f"{summary.gtld_brand_percentage_of_total:.1f}% of all zones"
+        ),
         f"- {fmt(summary.cctld_count)}\t ccTLDs, {summary.cctld_percentage_of_total:.1f}% of total",
         "",
         "Auto-linked zones:",
         f"- {fmt(summary.total_linked_zones)}\t {summary.total_linked_percentage:.1f}% of all zones total",
-        f"- {fmt(summary.cctld_linked)}\t {summary.cctld_linkable_percentage:.1f}% of ccTLDs and "
-        f"{summary.cctld_linked_percentage_of_total:.1f}% of all zones",
-        f"- {fmt(summary.gtld_linked)}\t {summary.gtld_linkable_percentage:.1f}% of gTLDs and "
-        f"{summary.gtld_linked_percentage_of_total:.1f}% of all zones",
-        f"- {fmt(summary.gtld_non_brand_linked)}\t {summary.gtld_non_brand_linkable_percentage:.1f}% of non-brand gTLDs and "
-        f"{summary.gtld_non_brand_linked_percentage_of_total:.1f}% of all zones",
-        f"- {fmt(summary.gtld_brand_linked)}\t {summary.gtld_brand_linkable_percentage:.1f}% of brand gTLDs and "
-        f"{summary.gtld_brand_linked_percentage_of_total:.1f}% of all zones",
+        (
+            f"- {fmt(summary.cctld_linked)}\t {summary.cctld_linkable_percentage:.1f}% of ccTLDs and "
+            f"{summary.cctld_linked_percentage_of_total:.1f}% of all zones"
+        ),
+        (
+            f"- {fmt(summary.gtld_linked)}\t {summary.gtld_linkable_percentage:.1f}% of gTLDs and "
+            f"{summary.gtld_linked_percentage_of_total:.1f}% of all zones"
+        ),
+        (
+            f"- {fmt(summary.gtld_non_brand_linked)}\t "
+            f"{summary.gtld_non_brand_linkable_percentage:.1f}% of non-brand gTLDs and "
+            f"{summary.gtld_non_brand_linked_percentage_of_total:.1f}% of all zones"
+        ),
+        (
+            f"- {fmt(summary.gtld_brand_linked)}\t "
+            f"{summary.gtld_brand_linkable_percentage:.1f}% of brand gTLDs and "
+            f"{summary.gtld_brand_linked_percentage_of_total:.1f}% of all zones"
+        ),
     ]
     return "\n".join(lines)
 

@@ -30,6 +30,7 @@ class AppleCheck(Check):
             ["sw_vers", "-productVersion"],
             capture_output=True,
             text=True,
+            check=True,
         )
         return result.stdout.strip()
 

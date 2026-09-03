@@ -84,7 +84,7 @@ A **platform** is a software ecosystem whose standard library, runtime, or core 
 | `platform` | Platform ID (e.g. `apple`, `android`, `chromium`) |
 | `platform_type` | Platform category: `os`, `browser`, `framework`, or `app` |
 | `platform_version` | Platform-specific version string (e.g. `26.3`, `14`, `131`) |
-| `check_date` | ISO 8601 date when the check was run |
+| `check_date` | ISO 8601 date (UTC) when the check was run |
 | `zones_count` | Total IANA zones in the dataset |
 | `cctld_count` | Number of ccTLDs in the dataset |
 | `gtld_count` | Number of gTLDs in the dataset |

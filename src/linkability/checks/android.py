@@ -10,7 +10,7 @@ import sys
 import urllib.error
 import urllib.request
 
-from .android_refs import DEFAULT_VERSION, ANDROID_REFS, ANDROID_RELEASE_DATES, resolve_ref
+from .android_refs import ANDROID_REFS, ANDROID_RELEASE_DATES, DEFAULT_VERSION, resolve_ref
 from .base import Check
 
 _PATTERNS_PATH = "core/java/android/util/Patterns.java"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import date
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .checks.android import AndroidCheck
@@ -105,7 +105,7 @@ def cmd_report_csv(args: argparse.Namespace) -> None:
         platform=args.platform,
         platform_type=check.platform_type,
         version=version,
-        check_date=date.today().isoformat(),
+        check_date=datetime.now(UTC).date().isoformat(),
         file_rel=file_rel,
         zones=zones,
         brand_zones=brand_zones,
@@ -148,7 +148,7 @@ def cmd_report_android_all(args: argparse.Namespace) -> None:
             platform="android",
             platform_type=check.platform_type,
             version=version,
-            check_date=date.today().isoformat(),
+            check_date=datetime.now(UTC).date().isoformat(),
             file_rel=file_rel,
             zones=zones,
             brand_zones=brand_zones,
@@ -193,11 +193,12 @@ def cmd_list_linked(args: argparse.Namespace) -> None:
         is_cc = is_cctld(zone)
         is_brand = zone in brand_zones
 
-        if args.type == "cctld" and is_cc:
-            linked.append(zone)
-        elif args.type == "gtld" and not is_cc:
-            linked.append(zone)
-        elif args.type == "brand" and not is_cc and is_brand:
+        matches_type = {
+            "cctld": is_cc,
+            "gtld": not is_cc,
+            "brand": not is_cc and is_brand,
+        }
+        if matches_type[args.type]:
             linked.append(zone)
 
     sorted_linked = sorted(linked)
