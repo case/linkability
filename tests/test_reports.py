@@ -4,10 +4,9 @@ import json
 import tempfile
 from pathlib import Path
 
-from linkability.reports import build_csv_rows, format_summary, generate_summary
 from linkability.analyze import ZoneSummary
+from linkability.reports import build_csv_rows, format_summary, generate_summary
 from linkability.zones import read_zones
-
 
 # --- build_csv_rows (pure computation, no I/O) ---
 
@@ -384,6 +383,36 @@ def test_summary_format() -> None:
     assert "gTLDs" in output
     assert "ccTLDs" in output
     assert "Auto-linked zones" in output
+
+
+def test_format_summary_multipart_bullets_stay_on_one_line() -> None:
+    """Each multi-part bullet stays one line; a dropped comma would merge two silently."""
+    summary = ZoneSummary(
+        total_zones=100,
+        cctld_count=20,
+        gtld_count=80,
+        gtld_brand_count=30,
+        gtld_non_brand_count=50,
+        cctld_linked=10,
+        gtld_linked=15,
+        gtld_brand_linked=5,
+        gtld_non_brand_linked=10,
+    )
+
+    bullets = [ln for ln in format_summary(summary, "Apple").split("\n") if ln.startswith("- ")]
+    assert len(bullets) == 9
+
+    fragments = (
+        "% of ccTLDs and",
+        "% of gTLDs and",
+        "% of non-brand gTLDs and",
+        "% of brand gTLDs and",
+    )
+    for fragment in fragments:
+        matching = [ln for ln in bullets if fragment in ln]
+        assert matching, f"no bullet contains {fragment!r}"
+        for line in matching:
+            assert line.endswith("% of all zones"), line
 
 
 # --- write_entry_json (sidecar metadata) ---
