@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import base64
 import re
-import re._constants as _rc
-import re._parser as _rp
 import sys
 import urllib.error
 import urllib.request
+from typing import override
 
 from .android_refs import ANDROID_REFS, ANDROID_RELEASE_DATES, DEFAULT_VERSION, resolve_ref
 from .base import Check
@@ -33,21 +32,25 @@ def parse_android_version(ref: str) -> str:
 class AndroidCheck(Check):
     def __init__(self, aosp_ref: str | None = None) -> None:
         self._aosp_ref = resolve_ref(aosp_ref or DEFAULT_VERSION)
-        self._cached_tlds: set[str] | None = None
+        self._cached_pattern: re.Pattern[str] | None = None
 
     @property
+    @override
     def platform_name(self) -> str:
         return "Android"
 
     @property
+    @override
     def platform_type(self) -> str:
         return "os"
 
     @property
+    @override
     def platform_version(self) -> str:
         return parse_android_version(self._aosp_ref)
 
     @property
+    @override
     def release_date(self) -> str | None:
         return ANDROID_RELEASE_DATES.get(self.platform_version)
 
@@ -55,20 +58,23 @@ class AndroidCheck(Check):
     def aosp_ref(self) -> str:
         return self._aosp_ref
 
+    @override
     def is_available(self) -> bool:
         return True  # Network-only, no device needed
 
+    @override
     def check_zones(self, zones: list[str]) -> dict[str, bool]:
-        tlds = self._get_android_tlds()
-        return {zone: zone in tlds for zone in zones}
+        pattern = self._get_android_pattern()
+        return {zone: pattern.fullmatch(zone) is not None for zone in zones}
 
-    def _get_android_tlds(self) -> set[str]:
-        if self._cached_tlds is not None:
-            return self._cached_tlds
+    def _get_android_pattern(self) -> re.Pattern[str]:
+        if self._cached_pattern is not None:
+            return self._cached_pattern
         source = fetch_patterns_java(self._aosp_ref)
-        regex_str = extract_tld_regex(source)
-        self._cached_tlds = expand_regex_to_tlds(regex_str)
-        return self._cached_tlds
+        pattern = re.compile(extract_tld_regex(source))
+        _check_pattern_baseline(pattern, self._aosp_ref)
+        self._cached_pattern = pattern
+        return pattern
 
 
 def fetch_patterns_java(ref: str = ANDROID_REFS[DEFAULT_VERSION]) -> str:
@@ -96,6 +102,8 @@ def fetch_patterns_java(ref: str = ANDROID_REFS[DEFAULT_VERSION]) -> str:
         except (urllib.error.HTTPError, urllib.error.URLError) as e:
             last_error = (url, e)
             continue
+    if last_error is None:
+        raise ValueError("No sources configured to fetch Patterns.java")
     url, e = last_error
     if isinstance(e, urllib.error.HTTPError):
         print(f"Error: Could not fetch Patterns.java — HTTP {e.code} ({e.reason})")
@@ -143,53 +151,20 @@ def extract_tld_regex(source: str) -> str:
     return raw.replace("\\-", "-")
 
 
-def expand_regex_to_tlds(regex_str: str) -> set[str]:
-    """Expand a regex-style TLD list into individual TLD strings.
+_BASELINE_TLDS = ("com", "net", "org")
+# Underscored text alone would let a generic label pattern such as [a-z]{2,63}
+# pass, so the second string is plausible-looking but not a delegated zone.
+_BASELINE_NON_TLDS = ("", "invalid_tld_canary", "notarealtldxyzzy")
 
-    Uses Python's regex parser to build an AST, then recursively enumerates
-    all matching strings.  This handles any combination of alternations,
-    character classes, ranges, and groups — far more robustly than hand-rolling
-    a regex-syntax walker.
+
+def _check_pattern_baseline(pattern: re.Pattern[str], ref: str) -> None:
+    """Fail loudly if the pattern stopped behaving like a TLD list.
+
+    A reshaped AOSP constant would otherwise publish 0% linkability silently.
     """
-    parsed = _rp.parse(regex_str)
-    return set(_enumerate_seq(parsed))
-
-
-def _enumerate_seq(seq: _rp.SubPattern) -> list[str]:
-    """Enumerate all strings matching a parsed regex sequence (concatenation)."""
-    result = [""]
-    for item in seq:
-        options = _enumerate_item(item)
-        result = [prefix + suffix for prefix in result for suffix in options]
-    return result
-
-
-def _enumerate_item(item: tuple) -> list[str]:
-    """Enumerate all strings matching a single AST node."""
-    opcode, av = item
-
-    if opcode == _rc.LITERAL:
-        return [chr(av)]
-
-    if opcode == _rc.IN:
-        chars: list[str] = []
-        for op, val in av:
-            if op == _rc.LITERAL:
-                chars.append(chr(val))
-            elif op == _rc.RANGE:
-                lo, hi = val
-                chars.extend(chr(c) for c in range(lo, hi + 1))
-        return chars
-
-    if opcode == _rc.BRANCH:
-        # av is (None, [branch1, branch2, ...])
-        results: list[str] = []
-        for branch in av[1]:
-            results.extend(_enumerate_seq(branch))
-        return results
-
-    if opcode == _rc.SUBPATTERN:
-        # av is (group_id, add_flags, del_flags, pattern)
-        return _enumerate_seq(av[-1])
-
-    raise ValueError(f"Unsupported regex construct in TLD pattern: {opcode}")
+    for tld in _BASELINE_TLDS:
+        if not pattern.fullmatch(tld):
+            raise ValueError(f"AOSP TLD pattern for {ref} does not match baseline {tld!r}")
+    for junk in _BASELINE_NON_TLDS:
+        if pattern.fullmatch(junk):
+            raise ValueError(f"AOSP TLD pattern for {ref} overmatches {junk!r}")

@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import override
 
 from .base import Check
 from .windows_refs import WINDOWS_BUILD_MAP, WINDOWS_RELEASE_DATES
@@ -16,38 +17,45 @@ _CHECK_DIR = Path(__file__).resolve().parent.parent.parent.parent / "checks" / "
 
 def _detect_windows_version() -> str:
     """Detect Windows consumer version from the registry build number."""
-    import winreg
+    # Typeshed conditions the winreg stub on sys.platform, so the guard is what
+    # lets a type checker resolve the registry calls off Windows.
+    if sys.platform == "win32":
+        import winreg
 
-    key = winreg.OpenKey(
-        winreg.HKEY_LOCAL_MACHINE,
-        r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
-    )
-    try:
-        build = winreg.QueryValueEx(key, "CurrentBuild")[0]
-    finally:
-        winreg.CloseKey(key)
-    return WINDOWS_BUILD_MAP.get(build, f"Build-{build}")
+        key = winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
+        )
+        try:
+            build = winreg.QueryValueEx(key, "CurrentBuild")[0]
+        finally:
+            winreg.CloseKey(key)
+        return WINDOWS_BUILD_MAP.get(build, f"Build-{build}")
+    return "unknown"
 
 
 class WindowsCheck(Check):
     @property
+    @override
     def platform_name(self) -> str:
         return "Windows"
 
     @property
+    @override
     def platform_type(self) -> str:
         return "os"
 
     @property
+    @override
     def platform_version(self) -> str:
-        if sys.platform != "win32":
-            return "unknown"
         return _detect_windows_version()
 
     @property
+    @override
     def release_date(self) -> str | None:
         return WINDOWS_RELEASE_DATES.get(self.platform_version)
 
+    @override
     def is_available(self) -> bool:
         return sys.platform == "win32"
 
@@ -65,6 +73,7 @@ class WindowsCheck(Check):
             )
         return binary
 
+    @override
     def check_zones(self, zones: list[str]) -> dict[str, bool]:
         if not self.is_available():
             raise RuntimeError("Windows check is only available on Windows")
