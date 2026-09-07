@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+# https://docs.astral.sh/uv/getting-started/installation/
+if ! command -v uv >/dev/null 2>&1; then
+  echo "Installing uv..."
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  # Same precedence the installer uses to pick its install directory.
+  if [ -n "${UV_INSTALL_DIR:-}" ]; then bin_dir="$UV_INSTALL_DIR"
+  elif [ -n "${XDG_BIN_HOME:-}" ]; then bin_dir="$XDG_BIN_HOME"
+  elif [ -n "${XDG_DATA_HOME:-}" ]; then bin_dir="$XDG_DATA_HOME/../bin"
+  else bin_dir="$HOME/.local/bin"
+  fi
+  # The installer writes an env script there that puts it on PATH.
+  env_script="$bin_dir/env"
+  if [ -f "$env_script" ]; then
+    # shellcheck source=/dev/null
+    . "$env_script"
+  fi
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "uv installed but is not on PATH. Restart your shell, then re-run bin/setup." >&2
+    exit 1
+  fi
+fi
+
+# Install the interpreter pinned in .python-version before creating the venv.
+uv python install
+
+uv sync
+
+# The Apple check builds a Swift package, which needs the macOS toolchain.
+if [ "$(uname)" = "Darwin" ] && ! xcode-select -p >/dev/null 2>&1; then
+  echo "macOS Command Line Tools are not installed. Install them with:" >&2
+  echo "  xcode-select --install" >&2
+  exit 1
+fi

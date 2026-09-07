@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from .analyze import ZoneSummary, compute_summary
 from .classify import classify_zone, is_cctld
 from .zones import read_zones
+
+# Manifest entries round-trip through JSON, so their values are heterogeneous.
+type ManifestEntry = dict[str, Any]
 
 # --- Snapshot CSV ---
 
@@ -60,7 +64,7 @@ def build_manifest_entry(
     check_results: dict[str, bool],
     source_ref: str | None = None,
     release_date: str | None = None,
-) -> dict:
+) -> ManifestEntry:
     """Build a manifest entry dict with zone counts and linked counts."""
     cctld_count = 0
     gtld_count = 0
@@ -109,7 +113,7 @@ def build_manifest_entry(
     return entry
 
 
-def load_manifest(output_dir: str = "Reports") -> list[dict]:
+def load_manifest(output_dir: str = "Reports") -> list[ManifestEntry]:
     """Load manifest entries from manifest.json, or empty list if missing."""
     path = Path(output_dir) / "manifest.json"
     if not path.exists():
@@ -118,7 +122,7 @@ def load_manifest(output_dir: str = "Reports") -> list[dict]:
     return data.get("snapshots", [])
 
 
-def save_manifest(entries: list[dict], output_dir: str = "Reports") -> None:
+def save_manifest(entries: list[ManifestEntry], output_dir: str = "Reports") -> None:
     """Write manifest.json with the given entries."""
     path = Path(output_dir) / "manifest.json"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -126,7 +130,9 @@ def save_manifest(entries: list[dict], output_dir: str = "Reports") -> None:
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
-def upsert_manifest_entry(entries: list[dict], new_entry: dict) -> list[dict]:
+def upsert_manifest_entry(
+    entries: list[ManifestEntry], new_entry: ManifestEntry
+) -> list[ManifestEntry]:
     """Add or replace a manifest entry, keyed by platform + platform_version."""
     key = (new_entry["platform"], new_entry["platform_version"])
     result = [e for e in entries if (e["platform"], e["platform_version"]) != key]
@@ -137,7 +143,7 @@ def upsert_manifest_entry(entries: list[dict], new_entry: dict) -> list[dict]:
 # --- Sidecar entry JSON ---
 
 
-def write_entry_json(entry: dict, output_dir: str = "Reports") -> Path:
+def write_entry_json(entry: ManifestEntry, output_dir: str = "Reports") -> Path:
     """Write a manifest entry as a sidecar JSON next to its snapshot CSV."""
     platform = entry["platform"]
     version = entry["platform_version"]
@@ -151,7 +157,7 @@ def write_entry_json(entry: dict, output_dir: str = "Reports") -> Path:
 def rebuild_from_sidecars(output_dir: str = "Reports") -> None:
     """Rebuild manifest.json and summary.csv from all sidecar JSON files."""
     snapshots_dir = Path(output_dir) / "snapshots"
-    entries: list[dict] = []
+    entries: list[ManifestEntry] = []
     if snapshots_dir.exists():
         for json_path in sorted(snapshots_dir.glob("**/*.json")):
             entry = json.loads(json_path.read_text(encoding="utf-8"))
@@ -181,7 +187,7 @@ _SUMMARY_HEADER = [
 ]
 
 
-def build_summary_csv(entries: list[dict]) -> list[list[str]]:
+def build_summary_csv(entries: list[ManifestEntry]) -> list[list[str]]:
     """Build summary CSV rows from manifest entries."""
     rows: list[list[str]] = [list(_SUMMARY_HEADER)]
     for entry in entries:
@@ -209,7 +215,7 @@ def build_summary_csv(entries: list[dict]) -> list[list[str]]:
     return rows
 
 
-def save_summary_csv(entries: list[dict], output_dir: str = "Reports") -> None:
+def save_summary_csv(entries: list[ManifestEntry], output_dir: str = "Reports") -> None:
     """Write summary.csv from manifest entries."""
     rows = build_summary_csv(entries)
     path = Path(output_dir) / "summary.csv"

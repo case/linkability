@@ -12,3 +12,5 @@ checks/windows/bin/
 checks/windows/obj/
 Data-Zones/tlds.json
 temp/*
+.coverage
+htmlcov/

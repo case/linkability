@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import override
 
 from .apple_refs import APPLE_RELEASE_DATES
 from .base import Check
@@ -16,14 +17,17 @@ _CHECK_DIR = Path(__file__).resolve().parent.parent.parent.parent / "checks" / "
 
 class AppleCheck(Check):
     @property
+    @override
     def platform_name(self) -> str:
         return "Apple"
 
     @property
+    @override
     def platform_type(self) -> str:
         return "os"
 
     @property
+    @override
     def platform_version(self) -> str:
         """Detect macOS version via sw_vers."""
         result = subprocess.run(
@@ -35,10 +39,12 @@ class AppleCheck(Check):
         return result.stdout.strip()
 
     @property
+    @override
     def release_date(self) -> str | None:
         major = self.platform_version.split(".")[0]
         return APPLE_RELEASE_DATES.get(major)
 
+    @override
     def is_available(self) -> bool:
         return sys.platform == "darwin"
 
@@ -56,6 +62,7 @@ class AppleCheck(Check):
             )
         return binary
 
+    @override
     def check_zones(self, zones: list[str]) -> dict[str, bool]:
         if not self.is_available():
             raise RuntimeError("Apple check is only available on macOS")

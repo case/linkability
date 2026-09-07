@@ -6,11 +6,16 @@ build-backend = "hatchling.build"
 name = "linkability"
 version = "0.1.0"
 description = "Measures how well popular tech platforms auto-link IANA top-level domains"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = ["idna>=3.18"]
 
 [dependency-groups]
-dev = ["pytest>=9.1.1", "ruff>=0.15.22"]
+dev = [
+    "pyright>=1.1.411",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.22",
+]
 
 [project.scripts]
 linkability = "linkability.cli:main"
@@ -23,3 +28,15 @@ line-length = 100
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.report]
+precision = 0
+show_missing = true
+sort = "cover"
+
+[tool.pyright]
+typeCheckingMode = "standard"
+pythonPlatform = "All"
+reportUnnecessaryTypeIgnoreComment = true
+reportImplicitOverride = true
+reportMissingTypeArgument = true

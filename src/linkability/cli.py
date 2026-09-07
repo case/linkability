@@ -6,10 +6,12 @@ import argparse
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import NoReturn, override
 
 from .checks.android import AndroidCheck
 from .checks.android_refs import ANDROID_REFS
 from .checks.apple import AppleCheck
+from .checks.base import Check
 from .checks.electron import ElectronCheck
 from .checks.windows import WindowsCheck
 from .classify import is_cctld
@@ -42,7 +44,7 @@ def _get_check(platform: str, ref: str | None = None):
         print(f"Unknown platform: {platform}. Available: {', '.join(_CHECKS)}")
         sys.exit(1)
     if ref and platform == "android":
-        check = cls(aosp_ref=ref)
+        check: Check = AndroidCheck(aosp_ref=ref)
     else:
         check = cls()
     if not check.is_available():
@@ -64,7 +66,9 @@ def _load_zones() -> tuple[list[str], set[str]]:
     return zones, brand_zones
 
 
-def _run_check(platform: str, zones: list[str], ref: str | None = None) -> tuple:
+def _run_check(
+    platform: str, zones: list[str], ref: str | None = None
+) -> tuple[Check, dict[str, bool]]:
     """Run a platform check and return (check_instance, results)."""
     check = _get_check(platform, ref=ref)
     results = check.check_zones(zones)
@@ -153,7 +157,7 @@ def cmd_report_android_all(args: argparse.Namespace) -> None:
             zones=zones,
             brand_zones=brand_zones,
             check_results=results,
-            source_ref=check.aosp_ref,
+            source_ref=ref,
             release_date=check.release_date,
         )
         write_entry_json(entry)
@@ -237,11 +241,13 @@ def cmd_check(args: argparse.Namespace) -> None:
 class _HelpFormatter(argparse.HelpFormatter):
     """Capitalizes section headings and the usage prefix."""
 
+    @override
     def start_section(self, heading: str | None) -> None:
         if heading:
             heading = heading[0].upper() + heading[1:]
         super().start_section(heading)
 
+    @override
     def _format_usage(self, usage, actions, groups, prefix):
         if prefix is None:
             prefix = "Usage: "
@@ -255,7 +261,8 @@ class _ArgumentParser(argparse.ArgumentParser):
         kwargs.setdefault("formatter_class", _HelpFormatter)
         super().__init__(*args, **kwargs)
 
-    def error(self, message: str) -> None:
+    @override
+    def error(self, message: str) -> NoReturn:
         self.print_usage(sys.stderr)
         self.exit(2, f"\nError: {message}\n")
 
