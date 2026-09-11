@@ -5,49 +5,128 @@ on:
     - cron: "0 9 * * 1" # Weekly on Mondays at 9am UTC
   workflow_dispatch: {}
 
+concurrency:
+  group: android-check
+  cancel-in-progress: false
+
+permissions: {}
+
 jobs:
   check:
-    runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    outputs:
+      changed: ${{ steps.patch.outputs.changed }}
+      patch_artifact: ${{ steps.patch.outputs.artifact }}
+      branch: ${{ steps.name.outputs.branch }}
+      title: ${{ steps.name.outputs.title }}
     steps:
       - name: Check out repo
+        timeout-minutes: 2
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up uv
+        timeout-minutes: 3
         uses: astral-sh/setup-uv@v10.0.1
 
       - name: Install dependencies
+        timeout-minutes: 5
         run: uv sync
 
       - name: Download latest zone data
+        timeout-minutes: 5
         run: |
           uv run linkability download zones
           uv run linkability download brands
 
       - name: Run Android checks for all refs
+        timeout-minutes: 10
         run: uv run linkability report android-all
 
       - name: Show summary
+        timeout-minutes: 2
         run: uv run linkability report summary --platform android
 
-      - name: Create PR if reports changed
+      # One source of truth for both: a run straddling midnight UTC would
+      # otherwise name the branch one day and the commit the next.
+      - name: Name the report branch
+        id: name
+        timeout-minutes: 1
         run: |
-          if git diff --quiet HEAD -- Reports/; then
-            echo "No report changes detected"
-            exit 0
-          fi
-          branch="reports/android-$(date +%Y-%m-%d)-${RUN_NUMBER}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch"
-          git add Reports/
-          git commit -m "Update Android platform reports $(date +%Y-%m-%d)"
-          git push -u origin "$branch"
-          gh pr create \
-            --title "Update Android platform reports $(date +%Y-%m-%d)" \
-            --body "$(cat <<'EOF'
+          day="$(date -u +%Y-%m-%d)"
+          {
+            echo "branch=reports/android-$day-$GITHUB_RUN_NUMBER"
+            echo "title=Update Android platform reports $day"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create report update patch
+        id: patch
+        timeout-minutes: 3
+        run: bin/ci-make-report-patch Reports/
+
+      - name: Upload report update patch
+        if: steps.patch.outputs.changed == 'true'
+        timeout-minutes: 3
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.patch.outputs.artifact }}
+          path: ${{ runner.temp }}/report-update.patch
+          retention-days: 1
+          if-no-files-found: error
+
+  sign:
+    needs: check
+    if: needs.check.result == 'success' && needs.check.outputs.changed == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repo
+        timeout-minutes: 2
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Download report update patch
+        timeout-minutes: 3
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.check.outputs.patch_artifact }}
+          path: ${{ runner.temp }}/report-update
+
+      - name: Rebase onto current main
+        timeout-minutes: 5
+        env:
+          EXPECTED_HEAD: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PUSH_REMOTE="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" \
+            bin/ci-land-report-patch rebase --guard Reports/
+
+      # Untrusted artifact, checked before and after it reaches the filesystem.
+      # The step holds no credentials. Why: Docs/ci-signing.md
+      - name: Validate and apply report update
+        timeout-minutes: 3
+        run: bin/ci-apply-report-patch "$RUNNER_TEMP/report-update/report-update.patch"
+
+      - name: Sign, push and open the reports PR
+        id: pr
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_SSH_SIGNING_KEY: ${{ secrets.CI_SSH_SIGNING_KEY }}
+          CI_COMMITTER_NAME: ${{ vars.CI_COMMITTER_NAME }}
+          CI_COMMITTER_EMAIL: ${{ vars.CI_COMMITTER_EMAIL }}
+          BRANCH: ${{ needs.check.outputs.branch }}
+          TITLE: ${{ needs.check.outputs.title }}
+        run: |
+          cat > "$RUNNER_TEMP/pr-body.md" <<'EOF'
           ## Android Platform Check
 
           Automated weekly check of TLD auto-linking across Android versions.
@@ -57,7 +136,10 @@ jobs:
 
           See `Reports/summary.csv` for aggregate stats and `Reports/snapshots/android/` for per-zone details.
           EOF
-          )"
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_NUMBER: ${{ github.run_number }}
+          PUSH_REMOTE="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" \
+            bin/ci-open-report-pr "$BRANCH" "$TITLE" "$RUNNER_TEMP/pr-body.md"
+
+      - name: Remove signing key
+        if: always()
+        timeout-minutes: 1
+        run: rm -f "$RUNNER_TEMP/linkability-ci-signing"

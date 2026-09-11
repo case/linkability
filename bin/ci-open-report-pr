@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: bin/ci-open-report-pr <branch> <title> <body-file>
+
+Signs the already-staged report update onto <branch>, then ensures a PR exists.
+Run after ci-land-report-patch rebase and ci-apply-report-patch. The caller owns
+the platform-specific body; the note about check approval is appended here,
+since it follows from opening the PR with GITHUB_TOKEN rather than from any one
+platform.
+
+Content equality decides whether an existing PR is commented on, so a re-run
+that regenerates identical reports does not add a second identical comment.
+
+Emits outcome to $GITHUB_OUTPUT: pr_opened, pr_updated, unchanged or pr_blocked.
+EOF
+}
+
+case "${1:-}" in
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  "" | -*)
+    echo "bin/ci-open-report-pr: a branch, a title and a body file are required" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
+
+if [ $# -ne 3 ]; then
+  echo "bin/ci-open-report-pr: expected exactly three arguments" >&2
+  exit 2
+fi
+branch="$1"
+title="$2"
+body="$3"
+if [ -z "$branch" ] || [ -z "$title" ]; then
+  echo "bin/ci-open-report-pr: the branch and title must not be empty" >&2
+  exit 2
+fi
+# Checked before the commit: a missing body would otherwise push the branch and
+# then die before the PR is opened.
+if [ ! -f "$body" ]; then
+  printf 'bin/ci-open-report-pr: no body file at %s\n' "$body" >&2
+  exit 2
+fi
+
+# Both are required, not defaulted: ci-land-report-patch refuses without
+# RUNNER_TEMP, and a defaulted GITHUB_OUTPUT silently loses new_content.
+for var in RUNNER_TEMP GITHUB_OUTPUT; do
+  if [ -z "${!var:-}" ]; then
+    printf 'bin/ci-open-report-pr: %s is not set\n' "$var" >&2
+    exit 2
+  fi
+done
+
+base_branch="${BASE_BRANCH:-main}"
+server="${GITHUB_SERVER_URL:-https://github.com}"
+repo="${GITHUB_REPOSITORY:-}"
+outfile="$GITHUB_OUTPUT"
+workdir="$RUNNER_TEMP"
+
+emit() { printf '%s=%s\n' "$1" "$2" >> "$outfile"; }
+
+here="$(dirname "$0")"
+"$here/ci-land-report-patch" commit \
+  --guard Reports/ \
+  --subject "$title" \
+  "$branch"
+
+new_content=true
+if grep -q '^new_content=false' "$outfile"; then
+  new_content=false
+fi
+
+# Read before writing: callers pass a body under $RUNNER_TEMP, which is $workdir,
+# so composing in place truncated the input before cat read it.
+body_text="$(cat "$body")"
+composed="$workdir/pr-comment.md"
+{
+  printf '%s\n' "$body_text"
+  echo
+  echo "Checks on this PR need manual approval: it was opened by GITHUB_TOKEN."
+} > "$composed"
+
+if [ "$(gh pr view "$branch" --json state --jq .state 2> /dev/null || true)" = "OPEN" ]; then
+  if [ "$new_content" = true ]; then
+    gh pr comment "$branch" --body-file "$composed"
+    emit outcome pr_updated
+  else
+    echo "The open PR already carries these reports; not commenting again."
+    emit outcome unchanged
+  fi
+  exit 0
+fi
+
+# A blocked create still leaves a pushed branch, so hand back a compare URL
+# rather than failing the step and losing the alert with it.
+if gh pr create --base "$base_branch" --head "$branch" \
+  --title "$title" --body-file "$composed" > "$workdir/pr-url.txt"; then
+  emit outcome pr_opened
+  emit pr_url "$(cat "$workdir/pr-url.txt")"
+else
+  echo "::warning::gh pr create failed; the branch is pushed and needs a PR opened by hand."
+  emit outcome pr_blocked
+  emit compare_url "$server/$repo/compare/$branch?expand=1"
+fi

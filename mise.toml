@@ -1,0 +1,5 @@
+# Linters that are not Python packages. uv stays with astral-sh/setup-uv in CI,
+# so it is deliberately absent here rather than pinned in two places.
+[tools]
+shellcheck = "0.11.0"
+actionlint = "1.7.12"

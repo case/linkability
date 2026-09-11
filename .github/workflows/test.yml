@@ -10,7 +10,8 @@ on:
       - "Makefile"
       - "pyproject.toml"
       - "uv.lock"
-      - ".github/workflows/test.yml"
+      - ".github/workflows/**"
+      - "mise.toml"
   pull_request:
     branches: [main]
     paths:
@@ -20,20 +21,30 @@ on:
       - "Makefile"
       - "pyproject.toml"
       - "uv.lock"
-      - ".github/workflows/test.yml"
+      - ".github/workflows/**"
+      - "mise.toml"
+
+permissions: {}
 
 jobs:
   test:
+    permissions:
+      contents: read
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-24.04, macos-15]
     steps:
       - name: Check out repo
         uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.0.1
+
+      # shellcheck and actionlint, pinned in mise.toml. bin/lint fails without
+      # them rather than skipping, so this step is not optional.
+      - name: Install the pinned linters
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
 
       - name: Install dependencies
         run: bin/setup

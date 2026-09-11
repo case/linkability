@@ -5,70 +5,104 @@ on:
     - cron: "0 9 * * 1" # Weekly on Mondays at 9am UTC
   workflow_dispatch: {}
 
+concurrency:
+  group: windows-check
+  cancel-in-progress: false
+
+permissions: {}
+
 jobs:
   check:
+    permissions:
+      contents: read
     strategy:
       matrix:
         os: [windows-2022, windows-2025]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 55
     steps:
       - name: Check out repo
+        timeout-minutes: 2
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up .NET
+        timeout-minutes: 5
         uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: "8.0"
 
       - name: Build Windows check binary
+        timeout-minutes: 5
         run: dotnet build -c Release
         working-directory: checks/windows
 
       - name: Set up uv
+        timeout-minutes: 3
         uses: astral-sh/setup-uv@v10.0.1
 
       - name: Install dependencies
+        timeout-minutes: 5
         run: uv sync
 
       - name: Download latest zone data
+        timeout-minutes: 5
         run: |
           uv run linkability download zones
           uv run linkability download brands
 
       - name: Run Windows platform check
+        timeout-minutes: 15
         run: uv run linkability report csv --platform windows
 
       - name: Show summary
+        timeout-minutes: 2
         run: uv run linkability report summary --platform windows
 
       - name: Upload snapshots
+        timeout-minutes: 3
         uses: actions/upload-artifact@v7
         with:
           name: snapshot-${{ matrix.os }}
           path: Reports/snapshots/windows/
+          retention-days: 1
+          if-no-files-found: error
 
   publish:
     needs: check
-    runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    outputs:
+      changed: ${{ steps.patch.outputs.changed }}
+      patch_artifact: ${{ steps.patch.outputs.artifact }}
+      branch: ${{ steps.name.outputs.branch }}
+      title: ${{ steps.name.outputs.title }}
     steps:
       - name: Check out repo
+        timeout-minutes: 2
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up uv
+        timeout-minutes: 3
         uses: astral-sh/setup-uv@v10.0.1
 
       - name: Install dependencies
+        timeout-minutes: 5
         run: uv sync
 
       - name: Download all snapshot artifacts
+        timeout-minutes: 5
         uses: actions/download-artifact@v8
         with:
           path: artifacts/
 
       - name: Merge snapshots into Reports/
+        timeout-minutes: 2
         run: |
           mkdir -p Reports/snapshots/windows
           for dir in artifacts/snapshot-*; do
@@ -76,24 +110,85 @@ jobs:
           done
 
       - name: Rebuild manifest and summary
+        timeout-minutes: 3
         run: uv run linkability report rebuild
 
-      - name: Create PR if reports changed
+      # One source of truth for both: a run straddling midnight UTC would
+      # otherwise name the branch one day and the commit the next.
+      - name: Name the report branch
+        id: name
+        timeout-minutes: 1
         run: |
-          if git diff --quiet HEAD -- Reports/; then
-            echo "No report changes detected"
-            exit 0
-          fi
-          branch="reports/windows-$(date +%Y-%m-%d)-${RUN_NUMBER}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch"
-          git add Reports/
-          git commit -m "Update Windows platform reports $(date +%Y-%m-%d)"
-          git push -u origin "$branch"
-          gh pr create \
-            --title "Update Windows platform reports $(date +%Y-%m-%d)" \
-            --body "$(cat <<'EOF'
+          day="$(date -u +%Y-%m-%d)"
+          {
+            echo "branch=reports/windows-$day-$GITHUB_RUN_NUMBER"
+            echo "title=Update Windows platform reports $day"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create report update patch
+        id: patch
+        timeout-minutes: 3
+        run: bin/ci-make-report-patch Reports/
+
+      - name: Upload report update patch
+        if: steps.patch.outputs.changed == 'true'
+        timeout-minutes: 3
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.patch.outputs.artifact }}
+          path: ${{ runner.temp }}/report-update.patch
+          retention-days: 1
+          if-no-files-found: error
+
+  sign:
+    needs: publish
+    if: needs.publish.result == 'success' && needs.publish.outputs.changed == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repo
+        timeout-minutes: 2
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Download report update patch
+        timeout-minutes: 3
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.publish.outputs.patch_artifact }}
+          path: ${{ runner.temp }}/report-update
+
+      - name: Rebase onto current main
+        timeout-minutes: 5
+        env:
+          EXPECTED_HEAD: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PUSH_REMOTE="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" \
+            bin/ci-land-report-patch rebase --guard Reports/
+
+      # Untrusted artifact, checked before and after it reaches the filesystem.
+      # The step holds no credentials. Why: Docs/ci-signing.md
+      - name: Validate and apply report update
+        timeout-minutes: 3
+        run: bin/ci-apply-report-patch "$RUNNER_TEMP/report-update/report-update.patch"
+
+      - name: Sign, push and open the reports PR
+        id: pr
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_SSH_SIGNING_KEY: ${{ secrets.CI_SSH_SIGNING_KEY }}
+          CI_COMMITTER_NAME: ${{ vars.CI_COMMITTER_NAME }}
+          CI_COMMITTER_EMAIL: ${{ vars.CI_COMMITTER_EMAIL }}
+          BRANCH: ${{ needs.publish.outputs.branch }}
+          TITLE: ${{ needs.publish.outputs.title }}
+        run: |
+          cat > "$RUNNER_TEMP/pr-body.md" <<'EOF'
           ## Windows Platform Check
 
           Automated weekly check of TLD auto-linking via RichEdit EM_AUTOURLDETECT.
@@ -103,7 +198,10 @@ jobs:
 
           See `Reports/summary.csv` for aggregate stats and `Reports/snapshots/windows/` for per-zone details.
           EOF
-          )"
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_NUMBER: ${{ github.run_number }}
+          PUSH_REMOTE="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" \
+            bin/ci-open-report-pr "$BRANCH" "$TITLE" "$RUNNER_TEMP/pr-body.md"
+
+      - name: Remove signing key
+        if: always()
+        timeout-minutes: 1
+        run: rm -f "$RUNNER_TEMP/linkability-ci-signing"

@@ -67,6 +67,10 @@ Python orchestrator with platform-specific check plugins:
 - **`checks/apple/`** — Minimal Swift package (no dependencies):
   - Reads zone names from stdin, runs `NSDataDetector` on `"nic.{zone}"`, outputs JSON `{"results": {...}}`
 
+- **`bin/ci-*`** — The signing layer the scheduled platform checks share. `main` requires verified
+  signatures, so a check job produces a `Reports/` patch with no credentials and a separate job
+  validates, signs and pushes it. Rationale and guards: `Docs/ci-signing.md`. Tests: `tests/ci/`.
+
 ## Data Flow
 
 1. Zone data is downloaded and cached in `Data-Zones/` (zones-full.txt from IANA, zones-brand.txt from ZoneDB CLI)
