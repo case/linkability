@@ -29,7 +29,7 @@ jobs:
 
       - name: Set up uv
         timeout-minutes: 3
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.1.0
 
       - name: Install dependencies
         timeout-minutes: 5
@@ -78,7 +78,7 @@ jobs:
 
       - name: Set up uv
         timeout-minutes: 3
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.1.0
 
       - name: Install dependencies
         timeout-minutes: 5
