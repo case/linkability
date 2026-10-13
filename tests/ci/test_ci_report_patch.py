@@ -7,6 +7,7 @@ and drives bin/ci-apply-report-patch and bin/ci-land-report-patch as CI does.
 
 import base64
 import re
+import shlex
 import shutil
 import subprocess
 from collections.abc import Callable, Iterator
@@ -345,7 +346,8 @@ def recording_git_stub(tmp_path: Path) -> tuple[Path, Path]:
     stub_dir = tmp_path / "recording-bin"
     stub_dir.mkdir()
     stub = stub_dir / "git"
-    stub.write_text(RECORDING_GIT_STUB.replace("REAL_GIT", real_git))
+    # Quoted: the git on PATH can sit under a path with spaces (GitHub Desktop's).
+    stub.write_text(RECORDING_GIT_STUB.replace("REAL_GIT", shlex.quote(real_git)))
     stub.chmod(0o755)
     return stub_dir, tmp_path / "recording.log"
 
@@ -690,7 +692,7 @@ class TestLease:
             rewrite_keep('{"second": 1}\n'),
         )
 
-        real_git = shutil.which("git")
+        real_git = shlex.quote(shutil.which("git") or "git")  # path may contain spaces
         stub_dir = tmp_path / "push-stub"
         stub_dir.mkdir()
         log = tmp_path / "push.log"
