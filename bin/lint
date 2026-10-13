@@ -8,8 +8,8 @@ if [ "$#" -eq 0 ]; then
 fi
 
 # Required, not skipped-if-absent: a check that cannot fail is worse than no
-# check. mise.toml pins both; `mise install` provides them.
-for tool in shellcheck actionlint; do
+# check. mise.toml pins them; `mise install` provides them.
+for tool in shellcheck actionlint dprint; do
   if ! command -v "$tool" > /dev/null; then
     echo "bin/lint: $tool not found; run mise install" >&2
     exit 1
@@ -53,5 +53,8 @@ if [ "${#workflows[@]}" -eq 0 ]; then
 else
   actionlint "${workflows[@]}" || exit_code=$?
 fi
+
+# Formatting per dprint.json, and JSON, TOML and YAML syntax.
+dprint check || exit_code=$?
 
 exit $exit_code

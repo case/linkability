@@ -19,20 +19,20 @@ We have a few short term goals:
 
 ## Zones
 
-| Term | Definition |
-|------|------------|
-| **Zone** | A top-level domain (TLD) as listed in the IANA root zone database. Used interchangeably with "TLD" in this project. |
-| **ccTLD** | Country-code TLD — a 2-letter ASCII zone representing a country or territory (e.g. `.uk`, `.de`, `.jp`). |
-| **gTLD** | Generic TLD — any zone that is not a ccTLD (e.g. `.com`, `.app`, `.museum`). |
+| Term          | Definition                                                                                                                                                       |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Zone**      | A top-level domain (TLD) as listed in the IANA root zone database. Used interchangeably with "TLD" in this project.                                              |
+| **ccTLD**     | Country-code TLD — a 2-letter ASCII zone representing a country or territory (e.g. `.uk`, `.de`, `.jp`).                                                         |
+| **gTLD**      | Generic TLD — any zone that is not a ccTLD (e.g. `.com`, `.app`, `.museum`).                                                                                     |
 | **Brand TLD** | A gTLD operated by a specific company for brand use (e.g. `.google`, `.apple`, `.bmw`). Identified via ICANN registry agreement types in [iana-data][iana-data]. |
 
 ## Linkability
 
-| Term | Definition |
-|------|------------|
+| Term             | Definition                                                                                                                                                  |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Auto-linking** | When a platform automatically detects text as a clickable URL based on its TLD, without requiring a protocol prefix (e.g. `example.ai` rendered as a link). |
-| **Linked** | Boolean result: whether a given zone is auto-linked by a given platform version. |
-| **Linkability** | The overall measure of how completely a platform auto-links IANA zones, expressed as counts and percentages. |
+| **Linked**       | Boolean result: whether a given zone is auto-linked by a given platform version.                                                                            |
+| **Linkability**  | The overall measure of how completely a platform auto-links IANA zones, expressed as counts and percentages.                                                |
 
 ## Platforms
 
@@ -43,23 +43,23 @@ A **platform** is a software ecosystem whose standard library, runtime, or core 
 - A **detection engine** — the specific API or component that performs link detection
 - A **version scheme** — how releases of that platform are identified
 
-| Platform ID | Type | Detection Engine | Version Scheme | Version Example |
-|-------------|------|-----------------|----------------|-----------------|
-| `apple` | `os` | `NSDataDetector` ([Foundation][nsdd]) | macOS version | `26.3` |
-| `android` | `os` | `Patterns.java` regex ([AOSP][android]) | Android version | `14` |
-| `windows` | `os` | RichEdit | Windows version + build | `11.26100` |
-| `chromium` | `browser` | URL parser | Chromium major version | `131` |
-| `firefox` | `browser` | URL parser | Firefox version | `134` |
-| `electron` | `framework` | Chromium-based | Electron version | `33.0.0` |
+| Platform ID | Type        | Detection Engine                        | Version Scheme          | Version Example |
+| ----------- | ----------- | --------------------------------------- | ----------------------- | --------------- |
+| `apple`     | `os`        | `NSDataDetector` ([Foundation][nsdd])   | macOS version           | `26.3`          |
+| `android`   | `os`        | `Patterns.java` regex ([AOSP][android]) | Android version         | `14`            |
+| `windows`   | `os`        | RichEdit                                | Windows version + build | `11.26100`      |
+| `chromium`  | `browser`   | URL parser                              | Chromium major version  | `131`           |
+| `firefox`   | `browser`   | URL parser                              | Firefox version         | `134`           |
+| `electron`  | `framework` | Chromium-based                          | Electron version        | `33.0.0`        |
 
 ### Platform type values
 
-| Type | Meaning |
-|------|---------|
-| `os` | Operating system standard library provides the detection (e.g. Apple Foundation, Android framework) |
-| `browser` | Browser engine performs its own link detection (e.g. Chromium, Firefox) |
+| Type        | Meaning                                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------------------------- |
+| `os`        | Operating system standard library provides the detection (e.g. Apple Foundation, Android framework)     |
+| `browser`   | Browser engine performs its own link detection (e.g. Chromium, Firefox)                                 |
 | `framework` | Application framework with link detection, often wrapping another engine (e.g. Electron wraps Chromium) |
-| `app` | A specific application whose behavior we observe (e.g. WhatsApp, which delegates to the OS) |
+| `app`       | A specific application whose behavior we observe (e.g. WhatsApp, which delegates to the OS)             |
 
 ### Platform notes
 
@@ -70,30 +70,30 @@ A **platform** is a software ecosystem whose standard library, runtime, or core 
 
 ## Reports
 
-| Term | Definition |
-|------|------------|
-| **Check** | The automated test that exercises a platform's detection engine against all IANA zones. |
+| Term         | Definition                                                                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Check**    | The automated test that exercises a platform's detection engine against all IANA zones.                                                          |
 | **Snapshot** | A complete set of per-zone linkability results for one platform at one version. Stored as a CSV in `Reports/snapshots/{platform}/{version}.csv`. |
-| **Manifest** | A JSON file (`Reports/manifest.json`) recording metadata for all snapshots (date, version, source ref, etc). |
-| **Summary** | A derived CSV time-series (`Reports/summary.csv`) of aggregate linkability statistics across all snapshots. |
+| **Manifest** | A JSON file (`Reports/manifest.json`) recording metadata for all snapshots (date, version, source ref, etc).                                     |
+| **Summary**  | A derived CSV time-series (`Reports/summary.csv`) of aggregate linkability statistics across all snapshots.                                      |
 
 ### Summary CSV columns
 
-| Column | Description |
-|--------|------------|
-| `platform` | Platform ID (e.g. `apple`, `android`, `chromium`) |
-| `platform_type` | Platform category: `os`, `browser`, `framework`, or `app` |
-| `platform_version` | Platform-specific version string (e.g. `26.3`, `14`, `131`) |
-| `check_date` | ISO 8601 date (UTC) when the check was run |
-| `zones_count` | Total IANA zones in the dataset |
-| `cctld_count` | Number of ccTLDs in the dataset |
-| `gtld_count` | Number of gTLDs in the dataset |
-| `brand_count` | Number of brand gTLDs in the dataset |
-| `linked_total` | Total zones auto-linked by the platform |
-| `linked_cctlds` | Number of ccTLDs auto-linked |
-| `linked_gtlds` | Number of gTLDs auto-linked |
-| `linked_brands` | Number of brand gTLDs auto-linked |
-| `linked_pct` | Overall linkability percentage (`linked_total / zones_count * 100`) |
+| Column             | Description                                                         |
+| ------------------ | ------------------------------------------------------------------- |
+| `platform`         | Platform ID (e.g. `apple`, `android`, `chromium`)                   |
+| `platform_type`    | Platform category: `os`, `browser`, `framework`, or `app`           |
+| `platform_version` | Platform-specific version string (e.g. `26.3`, `14`, `131`)         |
+| `check_date`       | ISO 8601 date (UTC) when the check was run                          |
+| `zones_count`      | Total IANA zones in the dataset                                     |
+| `cctld_count`      | Number of ccTLDs in the dataset                                     |
+| `gtld_count`       | Number of gTLDs in the dataset                                      |
+| `brand_count`      | Number of brand gTLDs in the dataset                                |
+| `linked_total`     | Total zones auto-linked by the platform                             |
+| `linked_cctlds`    | Number of ccTLDs auto-linked                                        |
+| `linked_gtlds`     | Number of gTLDs auto-linked                                         |
+| `linked_brands`    | Number of brand gTLDs auto-linked                                   |
+| `linked_pct`       | Overall linkability percentage (`linked_total / zones_count * 100`) |
 
 # Platform coverage
 
@@ -123,7 +123,7 @@ These are the platforms we're looking to cover:
 
 - 2023-07-21 — [PSL repo discussion][psl-thread] about this issue, from Rami at the `.tube` registry
 
-- - -
+---
 
 # Apple platforms
 

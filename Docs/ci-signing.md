@@ -20,11 +20,11 @@ reasoning. Source:
 
 ## The jobs
 
-| Job | Holds | Does |
-| --------- | -------------------------- | ------------------------------------------------------------- |
-| `check`   | `contents: read`           | Downloads zone data, runs the platform check.                  |
-| `publish` | `contents: read`           | Merges matrix snapshots, rebuilds, emits the patch. Apple and Windows only. |
-| `sign`    | `contents: write` + the key | Rebases, validates, signs, pushes, opens the PR.              |
+| Job       | Holds                       | Does                                                                        |
+| --------- | --------------------------- | --------------------------------------------------------------------------- |
+| `check`   | `contents: read`            | Downloads zone data, runs the platform check.                               |
+| `publish` | `contents: read`            | Merges matrix snapshots, rebuilds, emits the patch. Apple and Windows only. |
+| `sign`    | `contents: write` + the key | Rebases, validates, signs, pushes, opens the PR.                            |
 
 Android has no matrix, so its `check` job is also the producer.
 
@@ -35,19 +35,19 @@ failed-jobs re-run.
 
 ## The scripts
 
-| Script | Role |
-| --------------------------- | -------------------------------------------------------------------- |
+| Script                      | Role                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------- |
 | `bin/ci-make-report-patch`  | Producer. Emits `changed`, plus a patch and artifact name when there is one. |
-| `bin/ci-apply-report-patch` | Validates an untrusted patch and stages it. Holds no credentials.     |
-| `bin/ci-land-report-patch`  | Consumer, in two phases: `rebase` before the key exists, `commit` after. |
-| `bin/ci-open-report-pr`     | Lands the patch, then talks to `gh`.                                  |
+| `bin/ci-apply-report-patch` | Validates an untrusted patch and stages it. Holds no credentials.            |
+| `bin/ci-land-report-patch`  | Consumer, in two phases: `rebase` before the key exists, `commit` after.     |
+| `bin/ci-open-report-pr`     | Lands the patch, then talks to `gh`.                                         |
 
 ## The credential boundary is a workflow step, not a process
 
 `bin/ci-apply-report-patch` promises to hold no credentials, and that is structurally true only
 because the pipeline is separate Actions steps. Consolidating it into one process would break it,
 and calling the validator through `env -u` is cosmetic: the child reads the key straight out of the
-parent's `/proc/<pid>/environ`, which records the environment the parent was *exec'd* with.
+parent's `/proc/<pid>/environ`, which records the environment the parent was _exec'd_ with.
 
 So each workflow runs three steps:
 
