@@ -2,5 +2,5 @@
 # so it is deliberately absent here rather than pinned in two places.
 [tools]
 shellcheck = "0.11.0"
-actionlint = "1.7.12"
+jactionlint = "2.4.0"
 dprint = "0.57.4"
