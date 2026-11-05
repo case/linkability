@@ -26,22 +26,28 @@ on:
 
 permissions: {}
 
+# A new push to a PR cancels its older run; in-progress runs on main are not cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     permissions:
       contents: read
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       matrix:
         os: [ubuntu-24.04, macos-15]
     steps:
       - name: Check out repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
 
-      # shellcheck and actionlint, pinned in mise.toml. bin/lint fails without
+      # shellcheck and jactionlint, pinned in mise.toml. bin/lint fails without
       # them rather than skipping, so this step is not optional.
       - name: Install the pinned linters
         uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0

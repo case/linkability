@@ -9,7 +9,7 @@ fi
 
 # Required, not skipped-if-absent: a check that cannot fail is worse than no
 # check. mise.toml pins them; `mise install` provides them.
-for tool in shellcheck actionlint dprint; do
+for tool in shellcheck jactionlint dprint; do
   if ! command -v "$tool" > /dev/null; then
     echo "bin/lint: $tool not found; run mise install" >&2
     exit 1
@@ -48,10 +48,10 @@ while IFS= read -r workflow; do
   workflows+=("$workflow")
 done < <(find .github/workflows -type f -name '*.yml')
 if [ "${#workflows[@]}" -eq 0 ]; then
-  echo "bin/lint: no workflows found; the actionlint pass is inert" >&2
+  echo "bin/lint: no workflows found; the jactionlint pass is inert" >&2
   exit_code=1
 else
-  actionlint "${workflows[@]}" || exit_code=$?
+  jactionlint --profile default "${workflows[@]}" || exit_code=$?
 fi
 
 # Formatting per dprint.json, and JSON, TOML and YAML syntax.

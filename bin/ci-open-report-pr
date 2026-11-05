@@ -11,8 +11,10 @@ the platform-specific body; the note about check approval is appended here,
 since it follows from opening the PR with GITHUB_TOKEN rather than from any one
 platform.
 
-Content equality decides whether an existing PR is commented on, so a re-run
-that regenerates identical reports does not add a second identical comment.
+Equality of this platform's snapshot CSVs decides whether an existing PR is
+commented on, so a run that only re-dates identical results, or rebuilds on a
+main that gained another platform's reports, does not add another comment.
+Fork PRs that reuse <branch> as their head name are ignored.
 
 Emits outcome to $GITHUB_OUTPUT: pr_opened, pr_updated, unchanged or pr_blocked.
 EOF
@@ -48,9 +50,9 @@ if [ ! -f "$body" ]; then
   exit 2
 fi
 
-# Both are required, not defaulted: ci-land-report-patch refuses without
-# RUNNER_TEMP, and a defaulted GITHUB_OUTPUT silently loses new_content.
-for var in RUNNER_TEMP GITHUB_OUTPUT; do
+# Required, not defaulted: a defaulted GITHUB_OUTPUT silently loses new_content,
+# and an unscoped repository would let a fork's PR answer the lookup.
+for var in RUNNER_TEMP GITHUB_OUTPUT GITHUB_REPOSITORY GITHUB_REPOSITORY_OWNER; do
   if [ -z "${!var:-}" ]; then
     printf 'bin/ci-open-report-pr: %s is not set\n' "$var" >&2
     exit 2
@@ -59,7 +61,7 @@ done
 
 base_branch="${BASE_BRANCH:-main}"
 server="${GITHUB_SERVER_URL:-https://github.com}"
-repo="${GITHUB_REPOSITORY:-}"
+repo="$GITHUB_REPOSITORY"
 outfile="$GITHUB_OUTPUT"
 workdir="$RUNNER_TEMP"
 
@@ -67,7 +69,7 @@ emit() { printf '%s=%s\n' "$1" "$2" >> "$outfile"; }
 
 here="$(dirname "$0")"
 "$here/ci-land-report-patch" commit \
-  --guard Reports/ \
+  --guard "Reports/snapshots/${branch#reports/}/*.csv" \
   --subject "$title" \
   "$branch"
 
@@ -86,9 +88,12 @@ composed="$workdir/pr-comment.md"
   echo "Checks on this PR need manual approval: it was opened by GITHUB_TOKEN."
 } > "$composed"
 
-if [ "$(gh pr view "$branch" --json state --jq .state 2> /dev/null || true)" = "OPEN" ]; then
+# Owner-qualified on the server: filtering forks client-side would run after gh's result limit.
+pr_number="$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$GITHUB_REPOSITORY_OWNER:$branch" \
+  --jq '.[0].number // empty')"
+if [ -n "$pr_number" ]; then
   if [ "$new_content" = true ]; then
-    gh pr comment "$branch" --body-file "$composed"
+    gh pr comment "$pr_number" --body-file "$composed"
     emit outcome pr_updated
   else
     echo "The open PR already carries these reports; not commenting again."

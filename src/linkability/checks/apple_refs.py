@@ -15,4 +15,5 @@ APPLE_RELEASE_DATES: dict[str, str] = {
     "14": "2023-09-26",  # macOS 14 Sonoma
     "15": "2024-09-16",  # macOS 15 Sequoia
     "26": "2025-09-15",  # macOS 26 Tahoe
+    "27": "2026-09-14",  # macOS 27 Golden Gate
 }

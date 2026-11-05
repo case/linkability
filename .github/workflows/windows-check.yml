@@ -2,7 +2,7 @@ name: Windows Platform Check
 
 on:
   schedule:
-    - cron: "0 9 * * 1" # Weekly on Mondays at 9am UTC
+    - cron: "17 9 * * *" # Daily at 09:17 UTC; off the hour, when schedules queue
   workflow_dispatch: {}
 
 concurrency:
@@ -23,13 +23,13 @@ jobs:
     steps:
       - name: Check out repo
         timeout-minutes: 2
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up .NET
         timeout-minutes: 5
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: "8.0"
 
@@ -40,7 +40,7 @@ jobs:
 
       - name: Set up uv
         timeout-minutes: 3
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
 
       - name: Install dependencies
         timeout-minutes: 5
@@ -62,7 +62,7 @@ jobs:
 
       - name: Upload snapshots
         timeout-minutes: 3
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: snapshot-${{ matrix.os }}
           path: Reports/snapshots/windows/
@@ -78,18 +78,16 @@ jobs:
     outputs:
       changed: ${{ steps.patch.outputs.changed }}
       patch_artifact: ${{ steps.patch.outputs.artifact }}
-      branch: ${{ steps.name.outputs.branch }}
-      title: ${{ steps.name.outputs.title }}
     steps:
       - name: Check out repo
         timeout-minutes: 2
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up uv
         timeout-minutes: 3
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
 
       - name: Install dependencies
         timeout-minutes: 5
@@ -97,7 +95,7 @@ jobs:
 
       - name: Download all snapshot artifacts
         timeout-minutes: 5
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: artifacts/
 
@@ -113,18 +111,6 @@ jobs:
         timeout-minutes: 3
         run: uv run linkability report rebuild
 
-      # One source of truth for both: a run straddling midnight UTC would
-      # otherwise name the branch one day and the commit the next.
-      - name: Name the report branch
-        id: name
-        timeout-minutes: 1
-        run: |
-          day="$(date -u +%Y-%m-%d)"
-          {
-            echo "branch=reports/windows-$day-$GITHUB_RUN_NUMBER"
-            echo "title=Update Windows platform reports $day"
-          } >> "$GITHUB_OUTPUT"
-
       - name: Create report update patch
         id: patch
         timeout-minutes: 3
@@ -133,7 +119,7 @@ jobs:
       - name: Upload report update patch
         if: steps.patch.outputs.changed == 'true'
         timeout-minutes: 3
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.patch.outputs.artifact }}
           path: ${{ runner.temp }}/report-update.patch
@@ -151,13 +137,13 @@ jobs:
     steps:
       - name: Check out repo
         timeout-minutes: 2
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Download report update patch
         timeout-minutes: 3
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ needs.publish.outputs.patch_artifact }}
           path: ${{ runner.temp }}/report-update
@@ -185,13 +171,14 @@ jobs:
           CI_SSH_SIGNING_KEY: ${{ secrets.CI_SSH_SIGNING_KEY }}
           CI_COMMITTER_NAME: ${{ vars.CI_COMMITTER_NAME }}
           CI_COMMITTER_EMAIL: ${{ vars.CI_COMMITTER_EMAIL }}
-          BRANCH: ${{ needs.publish.outputs.branch }}
-          TITLE: ${{ needs.publish.outputs.title }}
+          # Literals, not producer outputs: nothing crosses into the signing job. Why: Docs/ci-signing.md
+          BRANCH: reports/windows
+          TITLE: Update Windows platform reports
         run: |
           cat > "$RUNNER_TEMP/pr-body.md" <<'EOF'
           ## Windows Platform Check
 
-          Automated weekly check of TLD auto-linking via RichEdit EM_AUTOURLDETECT.
+          Automated scheduled check of TLD auto-linking via RichEdit EM_AUTOURLDETECT.
 
           **Runners:** windows-2022, windows-2025
           **Source:** `msftedit.dll` RICHEDIT50W control with AURL_ENABLEURL
@@ -205,3 +192,29 @@ jobs:
         if: always()
         timeout-minutes: 1
         run: rm -f "$RUNNER_TEMP/linkability-ci-signing"
+
+  # Results matching main again mean an open report PR is superseded. Why: Docs/ci-signing.md
+  close-superseded:
+    needs: publish
+    if: needs.publish.result == 'success' && needs.publish.outputs.changed == 'false'
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repo
+        timeout-minutes: 2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Close a superseded report PR
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_COMMITTER_EMAIL: ${{ vars.CI_COMMITTER_EMAIL }}
+          BRANCH: reports/windows
+        run: |
+          PUSH_REMOTE="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" \
+            bin/ci-close-report-pr "$BRANCH"

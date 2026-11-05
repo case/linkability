@@ -15,9 +15,10 @@ the key out of the parent's /proc/<pid>/environ, which `env -u` does not prevent
 rebase   Moves HEAD onto the base branch tip, or refuses when a guarded path
          moved since the patch was built, or bin/ or .github/ moved since this
          job's own checkout.
-commit   Signs the staged patch and pushes. Requires the branch tip to be ours,
-         compares the guarded paths against it for new_content, and force-pushes
-         under a lease. Emits outcome=branch_diverged when it refuses.
+commit   Signs the staged patch and pushes. Requires the branch tip to be ours
+         and from a run no newer than this one, compares the guarded paths
+         against it for new_content, and force-pushes under a lease. Emits
+         outcome=branch_diverged or stale_run when it refuses.
 
 Environment:
   PUSH_REMOTE     Credential-free remote URL. Both phases.
@@ -26,6 +27,7 @@ Environment:
   EXPECTED_HEAD   Commit the patch was built against. rebase only.
   RUNNER_TEMP     Holds the key and the message. commit only.
   CI_SSH_SIGNING_KEY CI_COMMITTER_NAME CI_COMMITTER_EMAIL   commit only.
+  GITHUB_RUN_NUMBER  Recorded as the Report-Run trailer. commit only.
 
 Why each guard exists: Docs/ci-signing.md
 EOF
@@ -148,7 +150,14 @@ if [ $# -ne 1 ] || [ -z "$1" ] || [ -z "$subject" ]; then
 fi
 branch="$1"
 require_guards
-require PUSH_REMOTE RUNNER_TEMP CI_SSH_SIGNING_KEY CI_COMMITTER_NAME CI_COMMITTER_EMAIL
+require PUSH_REMOTE RUNNER_TEMP CI_SSH_SIGNING_KEY CI_COMMITTER_NAME CI_COMMITTER_EMAIL \
+  GITHUB_RUN_NUMBER
+case "$GITHUB_RUN_NUMBER" in
+  *[!0-9]*)
+    echo "::error::GITHUB_RUN_NUMBER is not a number: $GITHUB_RUN_NUMBER"
+    exit 1
+    ;;
+esac
 configure_auth
 
 if git diff --cached --quiet; then
@@ -163,6 +172,7 @@ message="$RUNNER_TEMP/commit-message"
     while IFS= read -r -d '' path; do
       printf -- '- %s\n' "${path#Reports/}"
     done
+  printf '\nReport-Run: %s\n' "$GITHUB_RUN_NUMBER"
 } > "$message"
 
 signing_key="$RUNNER_TEMP/linkability-ci-signing"
@@ -197,6 +207,14 @@ if git fetch --quiet --no-tags "$PUSH_REMOTE" "$branch" 2> /dev/null; then
   if [ "$committer" != "$CI_COMMITTER_EMAIL" ]; then
     echo "::error::$branch was last committed by $committer, not this workflow; refusing to force-push over it"
     emit outcome branch_diverged
+    exit 1
+  fi
+  # The branch is reused across runs, so a re-run of an old job must not replace newer results.
+  tip_run="$(git log -1 --format='%(trailers:key=Report-Run,valueonly)' FETCH_HEAD)"
+  case "$tip_run" in "" | *[!0-9]*) tip_run=0 ;; esac
+  if [ "$tip_run" -gt "$GITHUB_RUN_NUMBER" ]; then
+    echo "::error::$branch has run $tip_run already published; refusing to replace it with run $GITHUB_RUN_NUMBER"
+    emit outcome stale_run
     exit 1
   fi
   if git diff --quiet FETCH_HEAD HEAD -- "${guarded[@]}"; then

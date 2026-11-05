@@ -10,7 +10,7 @@ carry the longer rationale.
 
 ## A PR branch is not exempt
 
-The ruleset targets the default branch, and these workflows push to `reports/<platform>-<date>-<run>`
+The ruleset targets the default branch, and these workflows push to `reports/<platform>`
 rather than to `main`, which looks exempt. It is not. GitHub evaluates a pull request by building a
 test merge commit and checking **the commits it introduces, including those on the head branch**, so
 an unsigned commit on a report branch blocks the squash merge. iana-data learned this the expensive
@@ -20,11 +20,12 @@ reasoning. Source:
 
 ## The jobs
 
-| Job       | Holds                       | Does                                                                        |
-| --------- | --------------------------- | --------------------------------------------------------------------------- |
-| `check`   | `contents: read`            | Downloads zone data, runs the platform check.                               |
-| `publish` | `contents: read`            | Merges matrix snapshots, rebuilds, emits the patch. Apple and Windows only. |
-| `sign`    | `contents: write` + the key | Rebases, validates, signs, pushes, opens the PR.                            |
+| Job                | Holds                                    | Does                                                                                |
+| ------------------ | ---------------------------------------- | ----------------------------------------------------------------------------------- |
+| `check`            | `contents: read`                         | Downloads zone data, runs the platform check.                                       |
+| `publish`          | `contents: read`                         | Merges matrix snapshots, rebuilds, emits the patch. Apple and Windows only.         |
+| `sign`             | `contents: write` + the key              | Rebases, validates, signs, pushes, opens the PR.                                    |
+| `close-superseded` | `contents: read`, `pull-requests: write` | Android and Windows only. Runs when nothing changed; closes a superseded report PR. |
 
 Android has no matrix, so its `check` job is also the producer.
 
@@ -41,6 +42,7 @@ failed-jobs re-run.
 | `bin/ci-apply-report-patch` | Validates an untrusted patch and stages it. Holds no credentials.            |
 | `bin/ci-land-report-patch`  | Consumer, in two phases: `rebase` before the key exists, `commit` after.     |
 | `bin/ci-open-report-pr`     | Lands the patch, then talks to `gh`.                                         |
+| `bin/ci-close-report-pr`    | Closes a superseded report PR. Holds a token, never the key.                 |
 
 ## The credential boundary is a workflow step, not a process
 
@@ -102,9 +104,11 @@ too strict — an unrelated commit is not a hazard — so `bin/ci-land-report-pa
 
 ## The report branch is machine-owned
 
-Every scheduled run names a new branch, so the usual push creates a ref that did not exist. A
-re-run keeps `run_number` and therefore lands on the branch it already made, which is why the commit
-phase always checks ownership before force-pushing:
+The checks run nightly, and each platform has one rolling branch, `reports/<platform>`. A change
+found while its PR is still open force-pushes a fresh commit built against current `main` and
+comments on the same PR, so there is at most one open report PR per platform. The repository deletes
+head branches on merge, so the first change after a merge creates the branch again. Because the
+branch is reused, the commit phase checks it before force-pushing:
 
 - **Committer identity.** If the remote branch tip was not committed by `CI_COMMITTER_EMAIL`, the run
   exits 1 with `outcome=branch_diverged`, leaving a reviewer's commit on the PR branch intact. A
@@ -115,8 +119,36 @@ phase always checks ownership before force-pushing:
   branch this job may never have fetched; an empty `<expect>` requires the ref not to exist, which is
   the fresh-branch case.
 
-Content equality decides only whether an existing PR is commented on, so a re-run that regenerates
-identical reports does not post a second identical comment.
+- **Run order.** Each commit carries a `Report-Run: <run_number>` trailer. A tip from a higher run
+  exits 1 with `outcome=stale_run`, so re-running an old failed `sign` job cannot replace newer
+  results. A same-number re-run still lands, and a tip with no trailer counts as older. The guard
+  sees only published tips: to retry a failed `sign` job after a newer run has finished, dispatch a
+  fresh run instead.
+- **Same-repository PRs only.** The branch names are fixed and the repository is public, so a fork
+  can open a PR from its own `reports/<platform>`. Both PR scripts look up open PRs with
+  `isCrossRepository` false and act on that PR's number.
+- **Branch and title are literals** in the steps that use them, not outputs of the producer job, so
+  nothing the producer computes reaches the signing job except the validated patch.
+
+Equality of the platform's own snapshot CSVs (`Reports/snapshots/<platform>/*.csv`) decides only
+whether an existing PR is commented on. The check stamps a re-observed pending snapshot with that
+night's `check_date`, and a rebuild picks up other platforms' merged reports, so comparing all of
+`Reports/` would comment on unchanged results.
+
+When a run finds results matching `main` again, there is no patch, and `close-superseded` closes the
+open PR instead, so an observation the latest check contradicts cannot be merged. It leaves a PR open
+when a reviewer committed to it. Apple has no such job: its snapshots are keyed by the runner's exact
+macOS point release, so a night that lands on an older image during a rollout would close a valid PR.
+
+Two limits remain:
+
+- **Platforms can still conflict.** All three rebuild `Reports/manifest.json` and
+  `Reports/summary.csv`, so merging one platform's PR can leave another's conflicted until its next
+  nightly push rebuilds it against the new `main`. A merge landing mid-run trips the rebase guard,
+  and the next night retries.
+- **A reviewer commit left on the branch blocks it.** Merging deletes the branch, but closing a PR
+  without merging, including `close-superseded`, keeps it. If its tip is a human commit, every run
+  exits `branch_diverged`. Delete `reports/<platform>` once that work is on `main` or abandoned.
 
 ## Identity and credentials
 
@@ -134,7 +166,7 @@ and 401 the push.
 
 ## Linting
 
-`mise.toml` pins `shellcheck` and `actionlint`; `bin/lint` requires both on PATH and fails rather
+`mise.toml` pins `shellcheck` and `jactionlint`; `bin/lint` requires both on PATH and fails rather
 than skipping, since a check that cannot fail is worse than no check. `uv` is deliberately not
 pinned there: CI installs it with `astral-sh/setup-uv`, and two pins drift.
 
@@ -157,4 +189,5 @@ deduplication. Do that for anything added here later.
 - A PR opened with `GITHUB_TOKEN` has check runs awaiting manual approval. The PR body says so.
 - There are no failure notifications. iana-data alerts by pushover and email; this repository has no
   such infrastructure, so a failed signing job is visible only in the Actions tab.
-- Report branches accumulate: nothing deletes a merged `reports/<platform>-<date>-<run>` branch.
+- Dated `reports/<platform>-<date>-<run>` branches from before the rolling branch remain on the
+  remote; deleting them is optional housekeeping.

@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: bin/ci-close-report-pr <branch>
+
+Closes the open report PR on <branch> when the latest check found results that
+match main, so a superseded observation cannot be merged. Leaves the PR open
+when its branch tip was not committed by CI_COMMITTER_EMAIL, and refuses when
+the tip came from a later run than this one.
+
+Emits outcome to $GITHUB_OUTPUT: pr_closed, no_open_pr, kept_reviewer_commit or
+stale_run. A failed PR lookup fails the step rather than reading as no PR, and
+fork PRs that reuse <branch> as their head name are ignored. Run it inside a
+checkout: the branch tip is fetched into it.
+
+Environment:
+  PUSH_REMOTE         Credential-free remote URL, fetched to read the branch tip.
+  CI_COMMITTER_EMAIL  The identity that owns machine report commits.
+  GITHUB_RUN_NUMBER   This run, compared with the tip's Report-Run trailer.
+  GITHUB_REPOSITORY GITHUB_REPOSITORY_OWNER   Scope the PR lookup to this repository.
+  GH_TOKEN            Used by gh; needs pull-requests: write.
+EOF
+}
+
+case "${1:-}" in
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  "" | -*)
+    echo "bin/ci-close-report-pr: a branch is required" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
+if [ $# -ne 1 ]; then
+  echo "bin/ci-close-report-pr: expected exactly one argument" >&2
+  exit 2
+fi
+branch="$1"
+
+for var in PUSH_REMOTE CI_COMMITTER_EMAIL GITHUB_RUN_NUMBER GITHUB_REPOSITORY \
+  GITHUB_REPOSITORY_OWNER; do
+  if [ -z "${!var:-}" ]; then
+    echo "::error::$var is not configured"
+    exit 1
+  fi
+done
+
+outfile="${GITHUB_OUTPUT:-/dev/null}"
+emit() { printf '%s=%s\n' "$1" "$2" >> "$outfile"; }
+
+case "$GITHUB_RUN_NUMBER" in
+  *[!0-9]*)
+    echo "::error::GITHUB_RUN_NUMBER is not a number: $GITHUB_RUN_NUMBER"
+    exit 1
+    ;;
+esac
+
+# Owner-qualified on the server: filtering forks client-side would run after gh's result limit.
+pr_number="$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$GITHUB_REPOSITORY_OWNER:$branch" \
+  --jq '.[0].number // empty')"
+if [ -z "$pr_number" ]; then
+  echo "No open PR on $branch."
+  emit outcome no_open_pr
+  exit 0
+fi
+
+git fetch --quiet --no-tags --depth=1 "$PUSH_REMOTE" "$branch"
+committer="$(git log -1 --pretty=%ce FETCH_HEAD)"
+if [ "$committer" != "$CI_COMMITTER_EMAIL" ]; then
+  echo "::warning::$branch was last committed by $committer; leaving its PR open for review"
+  emit outcome kept_reviewer_commit
+  exit 0
+fi
+tip_run="$(git log -1 --format='%(trailers:key=Report-Run,valueonly)' FETCH_HEAD)"
+case "$tip_run" in "" | *[!0-9]*) tip_run=0 ;; esac
+if [ "$tip_run" -gt "$GITHUB_RUN_NUMBER" ]; then
+  echo "::error::$branch holds run $tip_run; run $GITHUB_RUN_NUMBER is older and will not close its PR"
+  emit outcome stale_run
+  exit 1
+fi
+
+gh pr close "$pr_number" --comment \
+  "Closing: the latest scheduled check found results matching \`main\`, so this PR no longer reflects the current check. The next change opens a new PR."
+emit outcome pr_closed
