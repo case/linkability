@@ -1,11 +1,13 @@
 """End-to-end tests for bin/ci-open-report-pr, driven against scratch repos.
 
-The flow runs once a week on a runner and never locally, so every case here
+The flow runs on a schedule on a runner and never locally, so every case here
 builds a throwaway repo plus a bare remote and stubs `gh` on PATH. Signing and
 pushing belong to bin/ci-land-report-patch and are covered in
 test_ci_report_patch.py; what this file pins is the PR the wrapper then opens.
 """
 
+import json
+import shlex
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -15,6 +17,8 @@ import pytest
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 OPEN_PR = REPO_ROOT / "bin" / "ci-open-report-pr"
+BRANCH = "reports/android"
+TITLE = "Update Android platform reports"
 
 ISOLATED_GIT_ENV = {
     "GIT_CONFIG_GLOBAL": "/dev/null",
@@ -24,11 +28,19 @@ ISOLATED_GIT_ENV = {
     "PATH": "/usr/local/bin:/usr/bin:/bin",
 }
 
+OWN_PR = json.dumps([{"number": 5}])
+QUERY = "api repos/case/linkability/pulls?state=open&head=case:reports/android"
+
+# GH_STUB_PRS stands for the server's already owner-filtered answer; the script's --jq runs on it.
 GH_STUB = """#!/usr/bin/env bash
-# Records argv, then answers from GH_STUB_* so a case can pick the branch taken.
 printf '%s\\n' "$*" >> "$GH_STUB_LOG"
+if [ "$1" = api ]; then
+  [ "${GH_STUB_LIST_FAILS:-}" = 1 ] && { echo "HTTP 401: Bad credentials" >&2; exit 1; }
+  while [ $# -gt 0 ] && [ "$1" != --jq ]; do shift; done
+  printf '%s' "${GH_STUB_PRS:-[]}" | JQ -r "$2"
+  exit
+fi
 case "$1 $2" in
-  "pr view") [ -n "${GH_STUB_PR_STATE:-}" ] || exit 1; echo "$GH_STUB_PR_STATE" ;;
   "pr create")
     [ "${GH_STUB_CREATE_FAILS:-}" = 1 ] && {
       echo "pull request create failed: GraphQL: GitHub Actions is not permitted" >&2
@@ -42,7 +54,7 @@ esac
 
 BODY = """## Android Platform Check
 
-Automated weekly check of TLD auto-linking across Android versions.
+Automated scheduled check of TLD auto-linking across Android versions.
 """
 
 
@@ -95,6 +107,7 @@ def workspace(tmp_path: Path) -> Workspace:
     git(origin, "config", "user.email", "test@example.invalid")
     snapshots = origin / "Reports" / "snapshots" / "android"
     snapshots.mkdir(parents=True)
+    (snapshots / "16.csv").write_text("zone,linked\n")
     (snapshots / "16.json").write_text("{}\n")
     commit_all(origin, "seed")
 
@@ -108,7 +121,10 @@ def workspace(tmp_path: Path) -> Workspace:
     stub_dir = tmp_path / "stub-bin"
     stub_dir.mkdir()
     stub = stub_dir / "gh"
-    stub.write_text(GH_STUB)
+    jq = shutil.which("jq")
+    if jq is None:
+        pytest.skip("jq not available")
+    stub.write_text(GH_STUB.replace("JQ", shlex.quote(jq)))
     stub.chmod(0o755)
 
     runner_temp = tmp_path / "runner-temp"
@@ -127,9 +143,13 @@ def workspace(tmp_path: Path) -> Workspace:
     )
 
 
-def stage_change(workspace: Workspace, text: str = '{"v": 2}\n') -> None:
-    target = workspace.repo / "Reports" / "snapshots" / "android" / "16.json"
-    target.write_text(text)
+def stage_change(
+    workspace: Workspace, results: str = "com,true\n", check_date: str = "2026-09-10"
+) -> None:
+    """Stage a snapshot the way the check writes one: results CSV plus dated sidecar."""
+    snapshots = workspace.repo / "Reports" / "snapshots" / "android"
+    (snapshots / "16.csv").write_text(f"zone,linked\n{results}")
+    (snapshots / "16.json").write_text(json.dumps({"check_date": check_date}) + "\n")
     git(workspace.repo, "add", "-A")
 
 
@@ -147,14 +167,16 @@ def run_open_pr(
         "GITHUB_OUTPUT": str(workspace.outputs),
         "GITHUB_SERVER_URL": "https://github.com",
         "GITHUB_REPOSITORY": "case/linkability",
+        "GITHUB_REPOSITORY_OWNER": "case",
         "GH_STUB_LOG": str(workspace.gh_log),
         "CI_SSH_SIGNING_KEY": signing_key,
         "CI_COMMITTER_NAME": "linkability bot",
         "CI_COMMITTER_EMAIL": "bot@example.invalid",
+        "GITHUB_RUN_NUMBER": "7",
     }
     env.update(env_overrides)
     if not args:
-        args = ("reports/android-2026-09-10-7", "Update Android platform reports 2026-09-10")
+        args = (BRANCH, TITLE)
         args = (*args, str(workspace.body))
     return subprocess.run(
         [str(OPEN_PR), *args],
@@ -181,7 +203,7 @@ class TestPrCreation:
         result = run_open_pr(workspace, signing_key)
 
         assert result.returncode == 0, result.stdout + result.stderr
-        pushed = git(workspace.bare, "rev-parse", "reports/android-2026-09-10-7").stdout.strip()
+        pushed = git(workspace.bare, "rev-parse", BRANCH).stdout.strip()
         assert pushed == git(workspace.repo, "rev-parse", "HEAD").stdout.strip()
         assert "gpgsig " in git(workspace.repo, "cat-file", "commit", "HEAD").stdout
         assert outputs_of(workspace)["outcome"] == "pr_opened"
@@ -192,11 +214,11 @@ class TestPrCreation:
         run_open_pr(workspace, signing_key)
 
         calls = workspace.gh_log.read_text()
-        assert "pr create --base main --head reports/android-2026-09-10-7" in calls
-        assert "--title Update Android platform reports 2026-09-10" in calls
+        assert "pr create --base main --head reports/android" in calls
+        assert f"--title {TITLE}" in calls
         composed = (workspace.runner_temp / "pr-comment.md").read_text()
         assert composed.startswith("## Android Platform Check")
-        assert "Automated weekly check" in composed
+        assert "Automated scheduled check" in composed
         assert "Checks on this PR need manual approval" in composed
         # The caller's file is under $RUNNER_TEMP too, so composing in place
         # truncated it before it was read.
@@ -208,7 +230,7 @@ class TestPrCreation:
         run_open_pr(workspace, signing_key)
 
         subject = git(workspace.repo, "log", "-1", "--pretty=%s").stdout.strip()
-        assert subject == "Update Android platform reports 2026-09-10"
+        assert subject == TITLE
 
     def test_the_signing_key_does_not_outlive_the_run(self, workspace, signing_key):
         stage_change(workspace)
@@ -224,11 +246,11 @@ class TestPrCreation:
         result = run_open_pr(workspace, signing_key, GH_STUB_CREATE_FAILS="1")
 
         assert result.returncode == 0, result.stdout + result.stderr
-        assert git(workspace.bare, "rev-parse", "reports/android-2026-09-10-7").returncode == 0
+        assert git(workspace.bare, "rev-parse", BRANCH).returncode == 0
         emitted = outputs_of(workspace)
         assert emitted["outcome"] == "pr_blocked"
         assert emitted["compare_url"] == (
-            "https://github.com/case/linkability/compare/reports/android-2026-09-10-7?expand=1"
+            "https://github.com/case/linkability/compare/reports/android?expand=1"
         )
 
     def test_refuses_when_nothing_was_staged(self, workspace, signing_key):
@@ -253,13 +275,13 @@ class TestReRun:
 
     def test_an_open_pr_gets_a_comment_instead_of_a_second_pr(self, workspace, signing_key):
         self._first_run(workspace, signing_key)
-        stage_change(workspace, '{"v": 3}\n')
+        stage_change(workspace, "com,false\n")
 
-        result = run_open_pr(workspace, signing_key, GH_STUB_PR_STATE="OPEN")
+        result = run_open_pr(workspace, signing_key, GH_STUB_PRS=OWN_PR)
 
         assert result.returncode == 0, result.stdout + result.stderr
         calls = workspace.gh_log.read_text()
-        assert "pr comment" in calls
+        assert "pr comment 5 --body-file" in calls
         assert "pr create" not in calls
         assert outputs_of(workspace)["outcome"] == "pr_updated"
 
@@ -268,11 +290,77 @@ class TestReRun:
         self._first_run(workspace, signing_key)
         stage_change(workspace)
 
-        result = run_open_pr(workspace, signing_key, GH_STUB_PR_STATE="OPEN")
+        result = run_open_pr(workspace, signing_key, GH_STUB_PRS=OWN_PR)
 
         assert result.returncode == 0, result.stdout + result.stderr
         assert "pr comment" not in workspace.gh_log.read_text()
         assert outputs_of(workspace)["outcome"] == "unchanged"
+
+    def test_the_same_results_on_a_later_day_are_not_announced(self, workspace, signing_key):
+        """The check re-dates a pending snapshot every night; only results count."""
+        self._first_run(workspace, signing_key)
+        stage_change(workspace, check_date="2026-09-11")
+
+        result = run_open_pr(workspace, signing_key, GH_STUB_PRS=OWN_PR)
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "pr comment" not in workspace.gh_log.read_text()
+        assert outputs_of(workspace)["outcome"] == "unchanged"
+        branch_json = git(workspace.bare, "show", f"{BRANCH}:Reports/snapshots/android/16.json")
+        assert "2026-09-11" in branch_json.stdout
+
+    def test_looks_up_only_this_repositorys_pr(self, workspace, signing_key):
+        """The repo is public and the branch name is fixed, so a fork can reuse it."""
+        stage_change(workspace)
+
+        result = run_open_pr(workspace, signing_key)
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert QUERY in workspace.gh_log.read_text()
+
+    def test_another_platform_merging_is_not_announced(self, workspace, signing_key, tmp_path):
+        """Rebuilding on a main that gained other platforms' snapshots is not a new result."""
+        self._first_run(workspace, signing_key)
+        other = tmp_path / "other"
+        git(tmp_path, "clone", "-q", str(workspace.bare), str(other))
+        git(other, "config", "user.name", "Owner")
+        git(other, "config", "user.email", "owner@example.invalid")
+        apple = other / "Reports" / "snapshots" / "apple"
+        apple.mkdir(parents=True)
+        (apple / "26.csv").write_text("zone,linked\ncom,true\n")
+        commit_all(other, "Merge Apple report PR")
+        git(other, "push", "-q", "origin", "main")
+        git(workspace.repo, "fetch", "-q", "origin")
+        git(workspace.repo, "checkout", "-q", "--detach", "origin/main")
+        stage_change(workspace, check_date="2026-09-11")
+
+        result = run_open_pr(workspace, signing_key, GH_STUB_PRS=OWN_PR)
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "pr comment" not in workspace.gh_log.read_text()
+        assert outputs_of(workspace)["outcome"] == "unchanged"
+
+    def test_a_kept_branch_is_reused_after_its_pr_merges(self, workspace, signing_key, tmp_path):
+        self._first_run(workspace, signing_key)
+        merger = tmp_path / "merger"
+        git(tmp_path, "clone", "-q", str(workspace.bare), str(merger))
+        git(merger, "config", "user.name", "Owner")
+        git(merger, "config", "user.email", "owner@example.invalid")
+        git(merger, "merge", "-q", "--no-ff", "-m", "Merge report PR", f"origin/{BRANCH}")
+        git(merger, "push", "-q", "origin", "main")
+        merged_main = git(merger, "rev-parse", "HEAD").stdout.strip()
+        git(workspace.repo, "fetch", "-q", "origin")
+        git(workspace.repo, "checkout", "-q", "--detach", "origin/main")
+        stage_change(workspace, "com,false\n", check_date="2026-09-11")
+
+        result = run_open_pr(workspace, signing_key, GITHUB_RUN_NUMBER="8")
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "pr create" in workspace.gh_log.read_text()
+        assert outputs_of(workspace)["outcome"] == "pr_opened"
+        assert git(workspace.bare, "rev-parse", f"{BRANCH}^").stdout.strip() == merged_main
+        changed = git(workspace.bare, "diff", "--name-only", "main", BRANCH).stdout.split()
+        assert changed == ["Reports/snapshots/android/16.csv", "Reports/snapshots/android/16.json"]
 
     def test_a_reviewer_commit_on_the_branch_is_not_discarded(
         self, workspace, signing_key, tmp_path
@@ -282,18 +370,18 @@ class TestReRun:
         git(tmp_path, "clone", "-q", str(workspace.bare), str(human))
         git(human, "config", "user.name", "Reviewer")
         git(human, "config", "user.email", "reviewer@example.invalid")
-        git(human, "checkout", "-q", "reports/android-2026-09-10-7")
+        git(human, "checkout", "-q", BRANCH)
         (human / "Reports" / "snapshots" / "android" / "16.json").write_text('{"human": 1}\n')
         theirs = commit_all(human, "reviewer edit")
-        git(human, "push", "-q", "origin", "reports/android-2026-09-10-7")
-        stage_change(workspace, '{"machine": 1}\n')
+        git(human, "push", "-q", "origin", BRANCH)
+        stage_change(workspace, "com,false\n")
 
-        result = run_open_pr(workspace, signing_key, GH_STUB_PR_STATE="OPEN")
+        result = run_open_pr(workspace, signing_key, GH_STUB_PRS=OWN_PR)
 
         assert result.returncode == 1
         assert "refusing to force-push over it" in result.stdout
         assert outputs_of(workspace)["outcome"] == "branch_diverged"
-        tip = git(workspace.bare, "rev-parse", "reports/android-2026-09-10-7").stdout.strip()
+        tip = git(workspace.bare, "rev-parse", BRANCH).stdout.strip()
         assert tip == theirs
 
 
@@ -335,7 +423,9 @@ class TestArguments:
 
         assert result.returncode == 2
 
-    @pytest.mark.parametrize("missing", ["RUNNER_TEMP", "GITHUB_OUTPUT"])
+    @pytest.mark.parametrize(
+        "missing", ["RUNNER_TEMP", "GITHUB_OUTPUT", "GITHUB_REPOSITORY", "GITHUB_REPOSITORY_OWNER"]
+    )
     def test_refuses_when_a_required_variable_is_unset(self, workspace, signing_key, missing):
         """The old mktemp fallback could not work: the helper requires RUNNER_TEMP."""
         stage_change(workspace)

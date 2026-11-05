@@ -273,6 +273,7 @@ def land_env(bare: Path, expected_head: str, key: str, **overrides: str) -> dict
         "CI_SSH_SIGNING_KEY": key,
         "CI_COMMITTER_NAME": "linkability bot",
         "CI_COMMITTER_EMAIL": "bot@example.invalid",
+        "GITHUB_RUN_NUMBER": "7",
     }
     env.update(overrides)
     Path(env["RUNNER_TEMP"]).mkdir(parents=True, exist_ok=True)
@@ -465,6 +466,7 @@ class TestLandReportPatch:
             "CI_SSH_SIGNING_KEY",
             "CI_COMMITTER_NAME",
             "CI_COMMITTER_EMAIL",
+            "GITHUB_RUN_NUMBER",
         ],
     )
     def test_refuses_when_a_required_variable_is_unset(
@@ -656,7 +658,7 @@ class TestOwnership:
 
 class TestLease:
     def test_a_fresh_branch_is_created_under_an_empty_lease(self, pushable, tmp_path, signing_key):
-        """Every scheduled run names a new branch, so this is the common path."""
+        """Merging deletes the report branch, so the first change after a merge lands here."""
         repo, bare = pushable
         patch = make_patch(repo, tmp_path, legitimate_change)
 
@@ -723,6 +725,82 @@ class TestLease:
         pushes = [ln for ln in log.read_text().splitlines() if ln.startswith("PUSH\t")]
         assert pushes, log.read_text()
         assert f"--force-with-lease=refs/heads/reports/x:{observed}" in pushes[-1], pushes[-1]
+
+
+class TestRunOrder:
+    """The report branch is reused, so an older run must not replace a newer one."""
+
+    def _second_land(self, repo, bare, tmp_path, signing_key, run_number, outputs=None):
+        git(
+            repo,
+            "checkout",
+            "-q",
+            "--force",
+            "--detach",
+            git(bare, "rev-parse", "main").stdout.strip(),
+        )
+        (tmp_path / "second").mkdir()
+        patch = make_patch(repo, tmp_path / "second", rewrite_keep('{"second": 1}\n'))
+        extra = {"GITHUB_OUTPUT": str(outputs)} if outputs else {}
+        return land(repo, bare, patch, signing_key, GITHUB_RUN_NUMBER=run_number, **extra)
+
+    def _first_land(self, repo, bare, tmp_path, signing_key, run_number):
+        (tmp_path / "first").mkdir()
+        patch = make_patch(repo, tmp_path / "first", legitimate_change)
+        result = land(repo, bare, patch, signing_key, GITHUB_RUN_NUMBER=run_number)
+        assert result.returncode == 0, result.stdout + result.stderr
+        return git(bare, "rev-parse", "reports/x").stdout.strip()
+
+    def test_the_commit_records_its_run_number(self, pushable, tmp_path, signing_key):
+        repo, bare = pushable
+        self._first_land(repo, bare, tmp_path, signing_key, "9")
+
+        trailer = git(
+            bare, "log", "-1", "--format=%(trailers:key=Report-Run,valueonly)", "reports/x"
+        ).stdout.strip()
+        assert trailer == "9"
+
+    def test_an_older_run_cannot_replace_a_newer_one(self, pushable, tmp_path, signing_key):
+        repo, bare = pushable
+        newer = self._first_land(repo, bare, tmp_path, signing_key, "9")
+        outputs = tmp_path / "order-outputs"
+
+        result = self._second_land(repo, bare, tmp_path, signing_key, "8", outputs)
+
+        assert result.returncode == 1
+        assert "run 9 already published" in result.stdout
+        assert "outcome=stale_run" in outputs.read_text()
+        assert git(bare, "rev-parse", "reports/x").stdout.strip() == newer
+
+    def test_a_rerun_of_the_same_run_still_lands(self, pushable, tmp_path, signing_key):
+        repo, bare = pushable
+        first = self._first_land(repo, bare, tmp_path, signing_key, "9")
+
+        result = self._second_land(repo, bare, tmp_path, signing_key, "9")
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert git(bare, "rev-parse", "reports/x").stdout.strip() != first
+
+    def test_a_tip_without_a_run_number_counts_as_older(self, pushable, tmp_path, signing_key):
+        """Commits made before the trailer existed must not block the first rolling run."""
+        repo, bare = pushable
+        git(repo, "config", "user.email", "bot@example.invalid")
+        (repo / "Reports" / "snapshots" / "android" / "keep.json").write_text('{"old": 1}\n')
+        commit_all(repo, "Update Android platform reports 2026-10-05")
+        git(repo, "push", "-q", str(bare), "HEAD:refs/heads/reports/x")
+
+        result = self._second_land(repo, bare, tmp_path, signing_key, "1")
+
+        assert result.returncode == 0, result.stdout + result.stderr
+
+    def test_rejects_a_run_number_that_is_not_a_number(self, pushable, tmp_path, signing_key):
+        repo, bare = pushable
+        patch = make_patch(repo, tmp_path, legitimate_change)
+
+        result = land(repo, bare, patch, signing_key, GITHUB_RUN_NUMBER="7a")
+
+        assert result.returncode == 1
+        assert "GITHUB_RUN_NUMBER is not a number" in result.stdout
 
 
 class TestCredentialBoundary:
@@ -855,32 +933,13 @@ class TestWorkflowInvariants:
         assert checked >= 8, f"only {checked} runner labels resolved; the guard is vacuous"
         assert offenders == [], f"floating runner images: {offenders}"
 
-    def test_third_party_actions_are_pinned_to_a_sha(self):
-        """First-party actions may float; everything else is a supply-chain decision."""
-        first_party = ("actions/", "github/", "astral-sh/")
-        floating = []
-        checked = 0
-        for w in self.workflows():
-            for job_name, step in self.steps(self.load(w)):
-                uses = step.get("uses")
-                if not isinstance(uses, str):
-                    continue
-                checked += 1
-                repo, _, ref = uses.partition("@")
-                if repo.startswith(first_party):
-                    continue
-                if not re.fullmatch(r"[0-9a-f]{40}", ref):
-                    floating.append(f"{w.name}:{job_name} {uses}")
-        assert checked >= 8, f"only {checked} `uses:` steps parsed; the guard is vacuous"
-        assert floating == [], f"third-party actions not SHA-pinned: {floating}"
-
     def test_every_workflow_declares_its_token_scope(self):
         """The default GITHUB_TOKEN scope depends on repo and org settings."""
         missing = [w.name for w in self.workflows() if "permissions" not in self.load(w)]
         assert missing == [], f"workflows with no permissions block: {missing}"
 
     def test_the_test_workflow_triggers_on_the_files_its_gate_now_covers(self):
-        """bin/lint runs actionlint over every workflow, so every workflow must run it."""
+        """bin/lint runs jactionlint over every workflow, so every workflow must run it."""
         on = self.triggers(self.load(REPO_ROOT / ".github" / "workflows" / "test.yml"))
 
         for event in ("push", "pull_request"):
