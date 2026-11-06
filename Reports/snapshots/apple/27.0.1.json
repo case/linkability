@@ -1,0 +1,16 @@
+{
+  "platform": "apple",
+  "platform_type": "os",
+  "platform_version": "27.0.1",
+  "release_date": "2026-09-14",
+  "check_date": "2026-11-06",
+  "file": "apple/27.0.1.csv",
+  "zones_count": 1436,
+  "cctld_count": 248,
+  "gtld_count": 1188,
+  "brand_count": 360,
+  "linked_total": 125,
+  "linked_cctlds": 91,
+  "linked_gtlds": 34,
+  "linked_brands": 1
+}
